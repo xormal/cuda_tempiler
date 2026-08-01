@@ -1,0 +1,157 @@
+TEMPO / ТЕМПОЛЯТОР — ЛИЦЕНЗИЯ
+Tempo Research License (TRL) v1.0
+
+Copyright (c) 2026 Alexander Romanov <alex.xorm@gmail.com>. Все права защищены.
+                   All rights reserved.
+
+Аутентичный текст — русский. English translation below is provided for
+convenience; in case of divergence the Russian text governs.
+
+===============================================================================
+РУССКИЙ ТЕКСТ (аутентичный)
+===============================================================================
+
+1. ОПРЕДЕЛЕНИЯ
+
+1.1. «Произведение» — исходные тексты, инструменты, модели, наборы измерений и
+     документация настоящего репозитория, а также любые производные от них.
+
+1.2. «Затронутый продукт» — любой продукт, услуга, сервис или внутренний
+     процесс, который (а) включает Произведение или его часть, либо (б) был
+     разработан, настроен, ускорен или измерен с использованием Произведения,
+     либо (в) содержит результаты, полученные Произведением.
+
+1.3. «Исследовательское использование» — использование Произведения лицом или
+     организацией, которые НЕ извлекают прибыль, прямо или косвенно, ни из
+     одного Затронутого продукта. Публикация научных работ, преподавание,
+     воспроизведение результатов и обмен ими в открытом доступе относятся к
+     Исследовательскому использованию.
+
+1.4. «Коммерческое использование» — любое использование, не подпадающее под
+     п. 1.3, в том числе использование внутри организации, извлекающей прибыль
+     из Затронутого продукта, независимо от того, распространяется ли сам
+     Затронутый продукт вовне.
+
+2. ПРАВА ПРИ ИССЛЕДОВАТЕЛЬСКОМ ИСПОЛЬЗОВАНИИ — БЕСПЛАТНО
+
+2.1. Правообладатель безвозмездно предоставляет право использовать,
+     воспроизводить, изменять и распространять Произведение для
+     Исследовательского использования.
+
+2.2. Условия: сохранение настоящей лицензии и указания авторства во всех копиях
+     и производных; указание источника при публикации результатов.
+
+2.3. Патентная оговорка: в пределах, необходимых для Исследовательского
+     использования, правообладатель предоставляет неисключительную безвозмездную
+     лицензию на принадлежащие ему патентные права. Это право прекращается
+     автоматически при предъявлении получателем патентных претензий в отношении
+     Произведения.
+
+3. КОММЕРЧЕСКОЕ ИСПОЛЬЗОВАНИЕ — ПО ДОГОВОРУ
+
+3.1. Коммерческое использование настоящей лицензией НЕ разрешается.
+
+3.2. Права на Коммерческое использование предоставляются на договорных условиях
+     по соглашению с правообладателем: alex.xorm@gmail.com
+
+3.3. Переход от Исследовательского к Коммерческому использованию требует
+     заключения договора ДО начала такого использования.
+
+4. ГРАНИЦА ПРИМЕНЕНИЯ
+
+4.1. Настоящая лицензия распространяется только на Произведение. Компоненты
+     третьих лиц, помещённые в каталог `vendor/` или иным образом помеченные,
+     сохраняют свои собственные лицензии; при противоречии приоритет имеет
+     лицензия третьего лица в отношении соответствующего компонента.
+
+4.2. Измерения и числовые результаты, полученные на оборудовании пользователя,
+     принадлежат пользователю.
+
+5. ОТСУТСТВИЕ ГАРАНТИЙ
+
+ПРОИЗВЕДЕНИЕ ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ», БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ, ЯВНЫХ ИЛИ
+ПОДРАЗУМЕВАЕМЫХ, ВКЛЮЧАЯ ГАРАНТИИ ПРИГОДНОСТИ ДЛЯ ОПРЕДЕЛЁННОЙ ЦЕЛИ И
+НЕНАРУШЕНИЯ ПРАВ. ПРАВООБЛАДАТЕЛЬ НЕ НЕСЁТ ОТВЕТСТВЕННОСТИ ЗА КАКОЙ-ЛИБО УЩЕРБ,
+ВОЗНИКШИЙ ИЗ ИСПОЛЬЗОВАНИЯ ПРОИЗВЕДЕНИЯ.
+
+Особо: Произведение содержит средства, изменяющие низкоуровневое поведение
+вычислительных ядер. Ответственность за проверку корректности результатов на
+своём оборудовании лежит на пользователе.
+
+6. ПРЕКРАЩЕНИЕ
+
+Права по разделу 2 прекращаются автоматически при нарушении условий настоящей
+лицензии и восстанавливаются после устранения нарушения, если правообладатель
+не заявил иного.
+
+===============================================================================
+ENGLISH TRANSLATION (for convenience; the Russian text governs)
+===============================================================================
+
+1. DEFINITIONS
+
+1.1. "Work" — the source code, tools, models, measurement datasets and
+     documentation of this repository, and any derivatives thereof.
+
+1.2. "Covered Product" — any product, service or internal process that
+     (a) incorporates the Work or any part of it, or (b) was developed, tuned,
+     accelerated or measured using the Work, or (c) contains results produced
+     by the Work.
+
+1.3. "Research Use" — use by a person or organisation that does NOT derive
+     profit, directly or indirectly, from any Covered Product. Academic
+     publication, teaching, reproduction of results and their open sharing are
+     Research Use.
+
+1.4. "Commercial Use" — any use not falling under 1.3, including internal use
+     within an organisation that derives profit from a Covered Product,
+     whether or not the Covered Product itself is distributed externally.
+
+2. RESEARCH USE — FREE OF CHARGE
+
+2.1. The copyright holder grants, free of charge, the right to use, reproduce,
+     modify and distribute the Work for Research Use.
+
+2.2. Conditions: retain this licence and attribution in all copies and
+     derivatives; cite the source when publishing results.
+
+2.3. Patent grant: to the extent necessary for Research Use, the copyright
+     holder grants a non-exclusive, royalty-free licence to its patent rights.
+     This grant terminates automatically if the recipient asserts patent claims
+     against the Work.
+
+3. COMMERCIAL USE — BY AGREEMENT
+
+3.1. Commercial Use is NOT permitted under this licence.
+
+3.2. Rights for Commercial Use are granted on contractual terms by agreement
+     with the copyright holder: alex.xorm@gmail.com
+
+3.3. Moving from Research Use to Commercial Use requires concluding an
+     agreement BEFORE such use begins.
+
+4. SCOPE
+
+4.1. This licence covers the Work only. Third-party components placed in
+     `vendor/` or otherwise marked retain their own licences; in case of
+     conflict, the third-party licence prevails for that component.
+
+4.2. Measurements and numerical results obtained on the user's own hardware
+     belong to the user.
+
+5. NO WARRANTY
+
+THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING WARRANTIES OF FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM USE OF
+THE WORK.
+
+In particular: the Work contains facilities that alter low-level behaviour of
+compute kernels. Verifying the correctness of results on one's own hardware is
+the user's responsibility.
+
+6. TERMINATION
+
+Rights under section 2 terminate automatically upon breach of this licence and
+are reinstated once the breach is cured, unless the copyright holder states
+otherwise.

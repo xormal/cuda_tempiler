@@ -1,0 +1,10 @@
+{
+  "name": "demo_fwd -- эталонное ядро самопроверки фазового профилировщика",
+  "kernel": "demo_fwd",
+  "sources": ["demo_phase_kernel.cu"],
+  "nvdisasm": "/opt/conda/miniconda3/envs/cuda128/bin/nvdisasm",
+  "out": "./build/phaseprof/demo_{tag}.cubin",
+  "build": "/opt/conda/miniconda3/envs/cuda128/bin/nvcc -arch=sm_70 -O3 -lineinfo -cubin -Wno-deprecated-gpu-targets -Xptxas -v -DFMHA_STRIP_MASK={mask} {extra} -o {out} ./tools/demo_phase_kernel.cu",
+  "seal_off": "-DDEMO_SEAL=0",
+  "units": "ms"
+}

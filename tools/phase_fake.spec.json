@@ -1,0 +1,9 @@
+{
+  "name": "ПОДСТАВНАЯ ЦЕЛЬ: самопроверка режима time БЕЗ КАРТЫ (аналитически известный ответ)",
+  "sources": ["phase_fake_kernel.cu"],
+  "out": "./build/phaseprof/fake_{tag}.stamp",
+  "build": "touch {out}",
+  "run": "python3 ./tools/phase_fake_target.py {mask}",
+  "units": "усл",
+  "anchor": {"gemm1": 35.294, "gemm2": 23.529, "softmax": 0.0}
+}

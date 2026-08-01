@@ -1,0 +1,17 @@
+{
+ "name": "attention_kernel_backward_batched_impl -- фазовая разметка бэкварда (11 фаз, биты 0..10)",
+ "kernel": "attention_kernel_backward",
+ "sources": [
+  "./profiled/bwd/inc/kernel_backward.h",
+  "./profiled/bwd/inc/fused_qk_gradk.h"
+ ],
+ "nvdisasm": "/opt/conda/miniconda3/envs/cuda128/bin/nvdisasm",
+ "out": "./profiled/bwd/out/pp/{tag}.cubin",
+ "build": "./profiled/bwd/build_spec.sh {out} {mask} {extra}",
+ "seal_off": "-DFMHA_BWD_PHASE_SEAL=0",
+ "units": "ms",
+ "note": "ЦЕЛЬ ПО УМОЛЧАНИЮ -- боевая плитка d=128: <kBI=128,kBJ=64,kMaxK=128,aligned> + -DFMHA_BWD_R7 -DFMHA_BWD_COAL_FO (255 рег, 0 разлива, kOutputInRF=true, слитый QK||GradK). Вторая цель, портрет ncu (255 рег, 41232 Б, 128 потоков, 7424 команды) -- <64,64,256>: там kOutputInRF=false, то есть работают ДРУГИЕ реализации тех же фаз (lock-RMW dQ, круг накопителей dK/dV через площадку). Свип по обеим: build/phase_bwd/sweep.sh.",
+ "note_static": "СТАТИЧЕСКИЙ разбор по строкам (`phaseprof static`) для этого ядра ЗАНИЖАЕТ доли: почти вся работа фаз лежит в ВСТРОЕННЫХ телах из mma_from_smem.h / mma_pipelined.h / epilogue, и -lineinfo привязывает их к ИХ файлам, а не к строке вызова внутри FMHA_PHASE. Поэтому отпечаток маски здесь доказывается не привязкой строк, а ДЕЛЬТОЙ СЧЁТА КОМАНД ПО КЛАССАМ: build/phase_bwd/table.py.",
+ "note_time": "ЗАМЕР ВРЕМЕНИ идёт НЕ через этот build (он собирает cubin без хоста), а через боевое расширение: FA2SM70_EXTRA_NVCC='-DFMHA_STRIP_MASK=<маска>' python benchmarks/bench_train.py ... -- переменная уже прокидывается в _CUTLASS_FLAGS (fa2_sm70/_ext.py:30), ninja пересобирает модуль при смене флага. Базу мерить с -DFMHA_STRIP_MASK=0 -DFMHA_BWD_PHASE_SEAL=1, чтобы пломба сокращалась из отношения времён.",
+ "note_fix_priyomka": "ИСПРАВЛЕНО НА ПРИЁМКЕ. Было: sources -> БОЕВЫЕ файлы (в них 0 вхождений FMHA_PHASE, phaseprof scan давал 0 фаз), build -> ./build/phase_bwd/build_spec.sh, у которого в nvcc НЕТ -I на каталог двойника, поэтому <kernel_backward.h> резолвился в БОЕВОЙ файл. ДОКАЗАНО СБОРКОЙ: маски 0 и 256 через прежний build дали ПОБАЙТОВО ОДИН SASS (md5 bae7a200561c18474096157eeeda058f -- это и есть неоснащённое БОЕВОЕ ядро), то есть маска не действовала ни на что и разложение вышло бы «все фазы бесплатны». Через исправленный путь те же маски дают cb445ef876df909d115f91fab594621b и cbc74fa59b3afd8bba5f238ae31db502."
+}

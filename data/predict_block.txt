@@ -1,0 +1,8 @@
+--- 
+_ZN8fa2_sm709block_fwd15volta_fwd_blockILi64ELi64ELi256ELi2ELi4ELb0ELi64ELb0ELi3ELb0ELi1ELi0ELi1     8   1854     4096     4096     4096 TENSOR    100.0%
+--- --nominal
+_ZN8fa2_sm709block_fwd15volta_fwd_blockILi64ELi64ELi256ELi2ELi4ELb0ELi64ELb0ELi3ELb0ELi1ELi0ELi1     8   1854     4096     5376     5376 MIO        76.2%
+--- --all-blocks
+_ZN8fa2_sm709block_fwd15volta_fwd_blockILi64ELi64ELi256ELi2ELi4ELb0ELi64ELb0ELi3ELb0ELi1ELi0ELi1     8   1973     4096     4096     4096 TENSOR    100.0%
+--- --all-blocks --nominal
+_ZN8fa2_sm709block_fwd15volta_fwd_blockILi64ELi64ELi256ELi2ELi4ELb0ELi64ELb0ELi3ELb0ELi1ELi0ELi1     8   1973     4096     5600     5600 MIO        73.1%

@@ -1,0 +1,85 @@
+{
+ "schema": "tempo/calib/1",
+ "id": "probe_channels",
+ "kind": "rate",
+ "quantity": "ёмкости каналов и задержки, снятые стендом probe.cu",
+ "units": "тактов на команду (на планировщик), кроме MIO -- байт/такт на SM",
+ "taken_with": {
+  "tool": "tools/probe.cu, лестницы c1..c32 и свипы занятости",
+  "counter": "секундомер + ptxas",
+  "version": "-"
+ },
+ "shape": {
+  "gpu": "V100-32GB (sm_70)",
+  "warps": [
+   4,
+   8,
+   12,
+   16,
+   24,
+   32
+  ],
+  "note": "643 точки, из них 17 сверены ncu"
+ },
+ "card": {
+  "index": 1,
+  "foreign_procs": 0,
+  "note": "стенд гоняли на свободной карте"
+ },
+ "observability": "без_возмущения",
+ "observability_why": "ёмкость канала и задержка -- свойства машины; тело стенда меряет само себя, чужого зонда в нём нет. ИСКЛЮЧЕНИЕ: задержка HMMA (8) -- ОЦЕНКА СВЕРХУ, не замер, поэтому она НЕ привязана и остаётся модельной",
+ "provenance": {
+  "source": [
+   "tools/tempo.py:18-35",
+   "data/probe_measured.json",
+   "data/knee_fit.txt"
+  ],
+  "date": "2026-08-01",
+  "who": "tempo/probe.cu"
+ },
+ "binds": [
+  {
+   "symbol": "SCHEDULERS",
+   "value": 4,
+   "note": "четыре планировщика на SM"
+  },
+  {
+   "symbol": "CAP_PER_SCHED.TENSOR",
+   "value": 1.0,
+   "note": "ЕДИНИЦА ёмкости (слот/такт на планировщик); сам ЗАМЕР -- 1.95 HMMA/такт/SM, то есть 2.05 такта на HMMA на планировщик, и он сидит в footprint() как 2.0"
+  },
+  {
+   "symbol": "REG_ISA_LIMIT",
+   "value": 255,
+   "note": "потолок ISA"
+  },
+  {
+   "symbol": "REG_OVERHEAD",
+   "value": 7,
+   "note": "требуемых регистров = MaxLive + 7 РОВНО (три точки, свидетель LDL/STL)"
+  },
+  {
+   "symbol": "LATENCY.LDS",
+   "value": 26.0,
+   "note": "замер s1x32 при одном варпе"
+  },
+  {
+   "symbol": "LATENCY.SHFL",
+   "value": 26.0,
+   "note": "та же лестница"
+  },
+  {
+   "symbol": "LATENCY.FFMA",
+   "value": 4.0,
+   "note": "лестница c1..c32"
+  },
+  {
+   "symbol": "LATENCY.IADD3",
+   "value": 4.0,
+   "note": "лестница c1..c32"
+  }
+ ],
+ "payload": {
+  "note": "ставка BRANCH=1 такт добавлена ПОСЛЕ нарушения границы на теле c1x16 (модель давала 76 при замеренных 72.1) -- это тоже калибровка, но она уже вшита в footprint()."
+ }
+}

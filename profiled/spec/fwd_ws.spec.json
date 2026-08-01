@@ -1,0 +1,12 @@
+{
+  "name": "volta_fwd_ws (байтовый форвард d=256, варпы по ролям) -- фазовая разметка, 5 фаз, биты 0..4",
+  "kernel": "volta_fwd_ws",
+  "sources": ["./profiled/fwd_ws/fa2_sm70/csrc/volta_fwd_ws.cuh"],
+  "nvdisasm": "/opt/conda/miniconda3/envs/cuda128/bin/nvdisasm",
+  "out": "./profiled/sass/pp_{tag}.cubin",
+  "build": "./profiled/spec/build_fwd_ws.sh ./profiled/fwd_ws/fa2_sm70/csrc pp_{tag} -DWS_D=$((64+{mask})) {extra}",
+  "units": "ms",
+  "note": "ИСТОЧНИК -- ДВОЙНИК, а не боевое дерево. Двойник порождается: twin.py gen --overlay profiled/spec/overlay_fwd_ws.json. Ворота дрейфа стоят там; если боевой volta_fwd_ws.cuh уехал, порождение ПАДАЕТ и этот spec работать не будет по построению.",
+  "note_seal": "seal_off НЕТ намеренно: при маске 0 подстановок в коде не существует (они живут в else конструкции if constexpr), поэтому цена разметки РОВНО НОЛЬ -- доказано побайтовым равенством cubin двойника при DIAG=0 и боевого при DIAG=0 (md5 d03193f0100e1b34698fafa92224ad6f). Насильный потребитель (FA2_WS_SINK) по умолчанию ВЫКЛЮЧЕН: со стоком невязка пары gemm1+gemm2 по TOTAL становится +8 вместо 0.",
+  "note_time": "ЗАМЕР ВРЕМЕНИ идёт НЕ через этот build (он собирает cubin без хоста), а через двойник диспетчера: nosc = var*100 + 8, var = 32 + mask. var 32 = маска 0 = БОЕВОЙ путь ЧЕРЕЗ ТУ ЖЕ ветвь; var 63 = сняты все пять. Одиночные: 33 gemm1, 34 gemm2, 36 softmax, 40 feed, 48 rendez. Десять пар: 35,37,38,41,42,44,49,50,52,56."
+}

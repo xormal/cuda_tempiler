@@ -1,0 +1,146 @@
+MINIMAL-PERIOD CYCLIC PACKING OF MULTI-CHANNEL FOOTPRINTS.
+
+I am studying a scheduling object and I need the structural boundary between the tractable and
+the intractable, plus a dual certificate. Please answer as a mathematician: definitions, theorem
+statements, proofs or proof sketches, explicit counterexamples. At most 2500 words.
+
+============================================================
+1. THE OBJECT
+============================================================
+
+Let R be a finite set of "channels". Each channel r carries a capacity m_r, a positive integer:
+at each integer instant, channel r admits at most m_r simultaneous occupancies.
+
+A "cell" is a pair (r, t) with r in R and t an integer instant.
+
+Let V be a finite set of atoms. Each atom i carries a FOOTPRINT F_i, a finite subset of
+R x {0,1,2,...}. Placing atom i at instant s_i means it occupies exactly the cells
+    { (r, s_i + d) : (r,d) in F_i }.
+A placement is admissible when every cell (r,t) is occupied by at most m_r atoms.
+
+Precedence: a directed graph D on V. An arc i -> j carries an integer length l_ij >= 0 and an
+integer turn count w_ij >= 0.
+
+Periodic placement of period T: every atom i is placed at all instants s_i + kT, k in Z, and the
+precedence constraint reads
+    s_j - s_i >= l_ij - T * w_ij.
+Occupancy of channel r at residue class t mod T counts all atoms whose footprint hits it in any
+repetition. Objective: minimise T over admissible periodic placements. Call the optimum T*.
+
+Two classical lower bounds:
+  (B1) volume, per channel:   T* >= ceil( ( sum over i of |{d : (r,d) in F_i}| ) / m_r ).
+  (B2) circuits:              T* >= max over directed circuits C of ( sum l ) / ( sum w ).
+
+============================================================
+2. WHAT MAKES THIS OBJECT DIFFERENT FROM THE TEXTBOOK ONE
+============================================================
+
+In the textbook version each atom occupies ONE cell of ONE channel for a contiguous span, and
+then (B1),(B2) and greedy behave well. Here an atom occupies a SET of cells spread over SEVERAL
+channels at SEVERAL offsets, and the sets of different atoms differ in shape. Empirically the
+shapes we meet are of three kinds:
+
+  (S1) singletons: F_i = {(r,0)} -- one cell in one channel.
+  (S2) a single cell in a "dispatch" channel r0 at offset 0, PLUS a contiguous run of tau cells
+       in a "heavy" channel r1 at offsets 0..tau-1. Measured tau = 2, m_{r0} = 1, m_{r1} = 1.
+  (S3) a single cell in r0 at offset 0, PLUS k cells in a "transfer" channel r2 at offsets
+       0..k-1, where k depends on the atom (k in {1,2,4,8}) and m_{r2} counts a divisible
+       capacity (a width, 128 units per instant, an atom consuming between 4 and 128 units).
+
+So: one shared unit-capacity channel touched by EVERY atom at offset 0, plus per-atom runs in
+other channels. Genuine multi-channel footprints, but of a very restricted form.
+
+============================================================
+3. THE EMPIRICAL FACTS THE MODEL MUST REPRODUCE
+============================================================
+
+These are measurements on the physical realisation, all with the answer held bit-identical, and
+each has already refuted at least one of my earlier models. Any theory I adopt must reproduce
+them; I list them so you can test candidate structures against them.
+
+(E1) FRACTIONAL AND PLACE-DEPENDENT MARGINAL COST. Add to each repetition ONE extra atom of type
+     (S1) -- one cell, one channel, the shared dispatch channel r0, capacity 1. Everything else
+     unchanged. Two experiments, IDENTICAL cell counts:
+       - the added atom has NO outgoing precedence arc (nothing waits for it):  T grew by 0.22
+       - the added atom is inserted into a chain that feeds a type-(S2) atom:   T grew by 0.49
+     Ratio 2.2 at identical occupancy. Linearity was then confirmed in the second regime: adding
+     513 such atoms grew T by 16.2 percent against 17.0 predicted by linear extrapolation, and
+     766 atoms by 23.8 against 25.4. So the marginal cost is a stable rational number in (0,1),
+     not 0 and not 1, and it depends on the atom's position in the precedence relation.
+
+(E2) A STRICT ORDER REVERSAL BETWEEN COUNT AND PERIOD. Two arrangements P and Q of the same
+     computation. Counting occupancies of the dispatch channel r0 per repetition: P uses 2814,
+     Q uses 3142 (Q is 11.7 percent HEAVIER). Measured periods: Q is 2 percent SHORTER than P.
+     So the total count of r0-cells is not even ordinally faithful to T*. My suspicion is that
+     the binding constraint sits in a different channel (the transfer channel r2), where P is
+     heavier -- but I want the model to make this a theorem, not a guess.
+
+(E3) A CHANNEL DISCOVERED, NOT ASSUMED. Two phases of the same computation carry EXACTLY the
+     same number of type-(S2) atoms (256 each) and EXACTLY the same number of type-(S1) atoms
+     (208 each), yet their measured durations differ by 795 units. The difference matches, to
+     within 3.4 percent, the difference of their loads in the transfer channel r2 (1024 versus
+     256 units of r2-time), computed from the shape of the transfer requests. So the binding
+     channel was r2, invisible in the r0 count. This is why I need the model to CERTIFY which
+     channel binds, rather than take it as input.
+
+(E4) A NON-MONOTONICITY UNDER A SIDE CONSTRAINT. Removing 96 atoms made T LARGER. The cause is a
+     side resource I have so far kept outside the model: a bounded pool of Q "slots" (Q = 255 per
+     agent, hard) that must hold every value between its creation and its last use; when the pool
+     overflows, extra atoms of a costly type are injected automatically. So the atom set itself
+     is not fixed -- it is determined BY the placement, through a maximum-weight-live constraint.
+
+============================================================
+4. THE TWO QUESTIONS
+============================================================
+
+QUESTION 1 (structure => tractability, with certificate).
+
+Give the sharpest structural condition on the family {F_i} under which T* equals a min-max
+expression
+        T* = max over S in a family Sigma of ( load(S) / capacity(S) )
+(i.e. the natural relaxation is exact) and state the dual certificate that proves optimality of a
+given placement. I care specifically about which of the following are sufficient, which are
+necessary, and which are neither:
+
+   (a) each footprint is a contiguous run of offsets inside a SINGLE channel;
+   (b) all footprints touch a common channel at offset 0 and are otherwise disjoint in channels
+       (this is the shape (S2)/(S3) above);
+   (c) the atom-by-cell incidence matrix is an interval matrix / totally unimodular;
+   (d) the admissible subsets form the independent sets of a matroid, or of an intersection of
+       two matroids;
+   (e) the supports {d : (r,d) in F_i} form a laminar family under inclusion.
+
+Then: where is the exact complexity boundary? What is the SMALLEST departure from your tractable
+class that makes the minimum period NP-hard -- two channels instead of one? capacity 2 instead
+of 1? footprints of size 2 with a gap (offsets {0,2}) instead of contiguous {0,1}? Please give
+the reduction, or cite the shape of it. I want to know exactly how much structure I may lose.
+
+QUESTION 2 (the marginal, and the reversal -- interdependent with Q1).
+
+Explain (E1) inside the model of Q1. My hypothesis: the true optimum is a max over a family Sigma
+of subsets, and the marginal derivative of T* with respect to inserting one new cell equals the
+"tightness density" -- the fraction of the tight subsets in Sigma that the new cell joins, or
+equivalently the value of an optimal dual variable. That would make the marginal a rational in
+(0,1) and make it depend on the atom's position in D, because the position decides which subsets
+of Sigma it joins.
+
+  (i) Is that the correct formalisation? If yes, give Sigma and the dual certificate explicitly,
+      and give a computable expression for the marginal: "adding one cell of channel r to an
+      instance whose tight family is ... raises T* by exactly ...". If it is wrong, give the
+      correct account of a marginal strictly between 0 and 1 that also explains why the SAME
+      added cell costs 2.2x more when it has a successor.
+  (ii) Under your answer, is the marginal locally CONSTANT (a linear regime) and over what range?
+       (E1)'s 513/766-atom check says yes over at least an 11 percent range; I want the condition
+       for that, and the point where the regime breaks.
+  (iii) What minimal extra data must be recorded per atom so that the reversal (E2) is PREDICTED
+       rather than explained after the fact? I want the smallest sufficient statistic: what must
+       I know about an atom besides its cell count in r0.
+
+Optional if it costs you little: say what (E4) does to the theory -- an atom set that depends on
+the placement through a bounded "liveness" pool. Is that still in a class with any guarantee, or
+does it break the min-max entirely?
+
+I would rather have one theorem with a proof and an honest boundary than a survey. If the honest
+answer is "the class you describe is already NP-hard and here is the reduction", that is a
+complete answer and I want it stated that way, together with the best approximation guarantee
+that survives.

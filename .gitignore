@@ -1,0 +1,31 @@
+# Reproducible build products and interpreter caches.
+build/
+**/__pycache__/
+*.py[cod]
+
+# Generated workspace from the padding sweep (about 5 GiB).
+pad/fwd_ws/
+pad/work/
+pad/*.log
+
+# Generated twins, disassemblies, compiler output and drift-test sandboxes.
+profiled/sass/
+profiled/twins/
+profiled/logs/
+profiled/bwd/inc/
+profiled/bwd/out/
+profiled/bwd/ext/
+profiled/bwd/drift/
+profiled/bwd/ext_m0.log
+profiled/fwdc/accept/
+profiled/fwdc/drift/
+profiled/fwdc/out/
+profiled/fwdc/twin/
+
+# Raw Nsight Compute reports are reproducible from the retained commands and summaries.
+data/ncu/*.ncu-rep
+
+# Local research transcripts and unrelated generic reference material.
+theory/q1_answer.json
+theory/q1_err.log
+vendor/cookbook.py

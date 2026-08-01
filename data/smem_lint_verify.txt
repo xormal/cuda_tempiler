@@ -1,0 +1,4 @@
+ok
+    d | ядро                         |     вайвфр |      конфл |    доля | линтер
+  128 | void split_defer_mqa_kernel< |  1.146e+04 |  1.320e+02 |    1.2 % | ЧИСТО (EPT=4)
+  256 | void split_defer_mqa_kernel< |  3.722e+04 |  1.770e+04 |   47.6 % | КОНФЛИКТ x2 (EPT=8)

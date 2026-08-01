@@ -1,0 +1,209 @@
+{
+  "name": "fwd_cutlass",
+  "version": "1",
+  "generated_at": "2026-08-01T19:29:39",
+  "generated_by": "./tools/twin.py",
+  "overlay": "./profiled/overlays/fwd_cutlass.json",
+  "overlay_md5": "ba690ef146b9c3e755225453cb20f732",
+  "prod_root": "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade",
+  "note": "ДВОЙНИК ПОРОЖДЁН, А НЕ СКОПИРОВАН. Править файлы в этом каталоге руками НЕЛЬЗЯ: правки будут стёрты следующим `twin.py gen` и, что хуже, не попадут в ворота дрейфа. Правьте наложение.",
+  "files": [
+    {
+      "file": "fa2_src/fmha_kernel/kernel_forward.h",
+      "src_md5": "37d263297615db17d7336b4fb48a1e61",
+      "twin": "./profiled/fwd_cutlass/fa2_src/fmha_kernel/kernel_forward.h",
+      "twin_md5": "4112e97d43a7153df752fd22429d766e",
+      "edits": 20,
+      "bytes_src": 64577,
+      "bytes_twin": 70443,
+      "anchors": [
+        {
+          "id": "00-#include \"transform/tile_smem_loader.h\"",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 73,
+          "anchor": "#include \"transform/tile_smem_loader.h\"\n\nusing namespace gemm_kernel_utils;\n",
+          "anchor_md5": "cac483d229270b70f53637a7532e2a9a"
+        },
+        {
+          "id": "01-prolog(бит 0)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 755,
+          "anchor": "    static_assert(kQueriesPerBlock < kNumWarpsPerBlock * kWarpSize, \"\");\n    if (thread_id() < kQueriesPerBlock) {\n      s_prime[thread_id()] = accum_t(0);\n      out_rescale[thread_id()] = accum_t(1.0);\n      m_prime[thread_id()] =\n          -cutlass::platform::numeric_limits<accum_t>::infinity();\n      mi[thread_id()] = -cutlass::platform::numeric_limits<accum_t>::infinity();\n    }\n",
+          "anchor_md5": "70f8212cfe38ad64b96e25babb634929"
+        },
+        {
+          "id": "02-gemm1(бит 1)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 903,
+          "anchor": "      // Compute threadblock-scoped matrix multiply-add\n      mma(gemm_k_iterations, accum, iterator_A, iterator_B, accum);\n      __syncthreads();\n",
+          "anchor_md5": "d63321fc63ec4e3f8536c4497f175b54"
+        },
+        {
+          "id": "03-gemm2(бит 4)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 906,
+          "anchor": "\n      if (kPreloadV) {\n        prologueV(0);\n      } else {\n        MM1::Mma::drain_cp_asyncs();\n      }\n",
+          "anchor_md5": "932c2c6da1994c212eeaffc1fa669cb8"
+        },
+        {
+          "id": "04-pstore(бит 3)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1047,
+          "anchor": "\n      MM0::B2bGemm::accumToSmem(\n          shared_storage.after_mm0.si, accum, my_lane_id, output_tile_coords);\n\n",
+          "anchor_md5": "5ffe41f0e747d45c9493b7189a99e471"
+        },
+        {
+          "id": "05-gemm2(бит 4)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1135,
+          "anchor": "        }\n\n        typename MM1::Mma::IteratorB iterator_V(\n            typename MM1::IteratorB::Params{typename MM1::LayoutB(p.v_strideM)},\n",
+          "anchor_md5": "d72ff7341d495636c3ce3ce52cc12112"
+        },
+        {
+          "id": "06-gemm2(бит 4)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1156,
+          "anchor": "        mma_pv(gemm_k_iterations, accum_o, iterator_V, accum_o);\n        __syncthreads();\n",
+          "anchor_md5": "eb91e23ad1724889b4d30ef009d34cc2"
+        },
+        {
+          "id": "07-gemm2(бит 4)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1158,
+          "anchor": "\n        if (kPreloadV && !kSingleValueIteration && blockN + 1 < nBlockN) {\n",
+          "anchor_md5": "abb417bf7bc74a575f05bdd935334ec0"
+        },
+        {
+          "id": "08-gemm2(бит 4)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1160,
+          "anchor": "          prologueV(blockN + 1);\n        }\n",
+          "anchor_md5": "abc96ebcb5c9260a209cd1a34b2a51e8"
+        },
+        {
+          "id": "09-epilog(бит 5)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1164,
+          "anchor": "          MM1::Mma::drain_cp_asyncs();\n          DISPATCH_BOOL(\n",
+          "anchor_md5": "2b0ff4316edcc5adab8aa6facb6bc51d"
+        },
+        {
+          "id": "10-epilog(бит 5)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1226,
+          "anchor": "              }));\n          if (!kSingleValueIteration) {\n",
+          "anchor_md5": "9446b4a8aa6b10bdaf394744bb68cd16"
+        },
+        {
+          "id": "11-epilog(бит 5)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1235,
+          "anchor": "    if (kKeepOutputInRF) {\n      constexpr bool kIsFirst = true;\n",
+          "anchor_md5": "8acc5ceef6dd8abe4a02c7e3e180c000"
+        },
+        {
+          "id": "12-epilog(бит 5)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1274,
+          "anchor": "      epilogue(rescale, dest_iter, accum_o);\n    }\n",
+          "anchor_md5": "03ecb6fda18a15265a4c436881862392"
+        },
+        {
+          "id": "13-softmax(бит 2)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1333,
+          "anchor": "\n    if (logit_softcap > 0.f) {\n      // Gemma-style attention logit soft-capping: logit -> cap*tanh(scale*logit/cap), then softmax.\n      // Applied per element in the log2 domain; masked entries (-inf) are preserved (tanh(-inf) = -1\n      // would otherwise leak finite mass). One-sided masks set exactly -inf, tested below.\n      const float inv = 1.0f / logit_softcap, s2 = scaling, capL2 = logit_softcap * kLog2e;\n      CUTLASS_PRAGMA_UNROLL\n      for (int e = 0; e < Fragment::kElements; ++e) {\n        float v = frag[e];\n        frag[e] = (v == -cutlass::platform::numeric_limits<accum_t>::infinity())\n            ? v : capL2 * tanhf(s2 * v * inv);\n      }\n    } else {\n      frag = cutlass::multiplies<Fragment>()(scaling * kLog2e, frag);\n    }\n",
+          "anchor_md5": "475926db82bc63c2ae0bea8f534566e0"
+        },
+        {
+          "id": "14-softmax(бит 2)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1352,
+          "anchor": "    // First update `mi` to the max per-row\n    {\n      accum_t max;\n",
+          "anchor_md5": "455ff14616cc4eb9b3552afb09b7925c"
+        },
+        {
+          "id": "15-softmax(бит 2)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1369,
+          "anchor": "          });\n    }\n\n    // Make sure we all share the update values for `mi`\n",
+          "anchor_md5": "915ee4b82c99cbee7d7f7859ef5bf32f"
+        },
+        {
+          "id": "16-softmax(бит 2)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1377,
+          "anchor": "    bool restore_mi_to_minus_inf = false;\n    if (lane_id < kLinesPerWarp) {\n",
+          "anchor_md5": "0feb60173b05432655eb850628ee0f69"
+        },
+        {
+          "id": "17-softmax(бит 2)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1399,
+          "anchor": "    }\n    __syncthreads(); // Update output fragments\n    if (kKeepOutputInRF && !is_first) {\n",
+          "anchor_md5": "7b66d71d2e80052e2f9f1c3e622d0f14"
+        },
+        {
+          "id": "18-softmax(бит 2)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1438,
+          "anchor": "    }\n    __syncthreads();\n    if (lane_id < kLinesPerWarp) {\n",
+          "anchor_md5": "4790aa00395900103cbd299f8761cda8"
+        },
+        {
+          "id": "19-softmax(бит 2)",
+          "why": "разметка фазы для снятия по FMHA_STRIP_MASK",
+          "mode": "replace",
+          "line_in_prod": 1453,
+          "anchor": "      s_prime[id] = total_row;\n    }\n",
+          "anchor_md5": "cc207c53ed22383c281f09d631faf389"
+        }
+      ]
+    }
+  ],
+  "added": [
+    {
+      "path": "fa2_src/fmha_kernel/fwd_phase.h",
+      "from": "./profiled/fwdc/fwd_phase.h",
+      "md5": "d921bb4faafe0cbeb1bc3f34c91ed096"
+    },
+    {
+      "path": "fa2_src/fmha_kernel/fmha_phase.h",
+      "from": "./tools/fmha_phase.h",
+      "md5": "1dfb3b946e1fb07da5a7ae0f4d22312b"
+    },
+    {
+      "path": "inst_fwd.cu",
+      "from": "./profiled/fwdc/inst_fwd.cu",
+      "md5": "a771571ed38ff2d35d72df6a0c44718f"
+    }
+  ],
+  "twin_include_dirs": [
+    "./profiled/fwd_cutlass/fa2_src/fmha_kernel",
+    "./profiled/fwd_cutlass"
+  ],
+  "prod_include_dirs": [
+    "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade/fa2_src/cutlass/include",
+    "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade/fa2_src/fmha_kernel"
+  ],
+  "build": {}
+}

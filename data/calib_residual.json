@@ -1,0 +1,336 @@
+{
+ "sections": [
+  {
+   "id": "law",
+   "n": 34,
+   "median_safe_understated": 0.5,
+   "max_safe_understated": 0.96875,
+   "max_law_err": 0.0
+  },
+  {
+   "id": "wf_per_inst",
+   "rows": [
+    {
+     "kernel": "volta_fwd_block",
+     "residual": 0.0
+    },
+    {
+     "kernel": "volta_fwd_ws (фаза 0)",
+     "residual": 0.18516542155816432
+    },
+    {
+     "kernel": "volta_fwd_ws (фаза 7)",
+     "residual": 0.20256547300908606
+    }
+   ]
+  },
+  {
+   "id": "conflict_share",
+   "rows": [
+    {
+     "kernel": "attention_kernel_batched_impl (forward, cutlass)",
+     "fraction": 0.2082
+    },
+    {
+     "kernel": "volta_fwd_ws (байтовый форвард)",
+     "fraction": 0.194
+    },
+    {
+     "kernel": "attention_kernel_backward_batched_impl",
+     "fraction": 0.3465
+    },
+    {
+     "kernel": "split_defer_mqa_kernel (декод, EPT=4)",
+     "fraction": 0.012
+    }
+   ]
+  },
+  {
+   "id": "phases",
+   "named": 0.777,
+   "residual": 0.22299999999999998
+  },
+  {
+   "id": "padcurves",
+   "n": 0,
+   "forecast": [
+    {
+     "name": "volta_fwd_ws / плитка K",
+     "why": "LDK8 = 272 Б = 68 слов, 74.5 % конфликтов ядра",
+     "stride_words": 68,
+     "maps": [
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 1,
+       "argmin_pad": 1,
+       "wf0": 4.0,
+       "wf_best": 1.0,
+       "gain": 4.0
+      },
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 2,
+       "argmin_pad": 2,
+       "wf0": 2.0,
+       "wf_best": 1.0,
+       "gain": 2.0
+      },
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 4,
+       "argmin_pad": 0,
+       "wf0": 1.0,
+       "wf_best": 1.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 1,
+       "argmin_pad": 1,
+       "wf0": 4.0,
+       "wf_best": 2,
+       "gain": 2.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 2,
+       "argmin_pad": 0,
+       "wf0": 2.0,
+       "wf_best": 2.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 4,
+       "argmin_pad": 0,
+       "wf0": 2.0,
+       "wf_best": 2.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 1,
+       "argmin_pad": 0,
+       "wf0": 4.0,
+       "wf_best": 4.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 2,
+       "argmin_pad": 0,
+       "wf0": 4.0,
+       "wf_best": 4.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 4,
+       "argmin_pad": 0,
+       "wf0": 4.0,
+       "wf_best": 4.0,
+       "gain": 1.0
+      }
+     ],
+     "argmin_set": [
+      0,
+      1,
+      2
+     ],
+     "universal_pads": [],
+     "minimax_regret_pad": 1,
+     "minimax_regret": 2.0,
+     "regret_pad0": 4.0
+    },
+    {
+     "name": "volta_fwd_ws / sQ",
+     "why": "шаг 130 слов; по строкам чист, конфликтует пролог двумя STS.64",
+     "stride_words": 130,
+     "maps": [
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 1,
+       "argmin_pad": 1,
+       "wf0": 2.0,
+       "wf_best": 1.0,
+       "gain": 2.0
+      },
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 2,
+       "argmin_pad": 0,
+       "wf0": 1.0,
+       "wf_best": 1.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 4,
+       "argmin_pad": 2,
+       "wf0": 2.0,
+       "wf_best": 1.0,
+       "gain": 2.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 1,
+       "argmin_pad": 0,
+       "wf0": 2.0,
+       "wf_best": 2.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 2,
+       "argmin_pad": 0,
+       "wf0": 2.0,
+       "wf_best": 2.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 4,
+       "argmin_pad": 1,
+       "wf0": 4.0,
+       "wf_best": 2.0,
+       "gain": 2.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 1,
+       "argmin_pad": 0,
+       "wf0": 4,
+       "wf_best": 4,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 2,
+       "argmin_pad": 0,
+       "wf0": 4,
+       "wf_best": 4,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 4,
+       "argmin_pad": 0,
+       "wf0": 4.0,
+       "wf_best": 4.0,
+       "gain": 1.0
+      }
+     ],
+     "argmin_set": [
+      0,
+      1,
+      2
+     ],
+     "universal_pads": [],
+     "minimax_regret_pad": 0,
+     "minimax_regret": 2.0,
+     "regret_pad0": 2.0
+    },
+    {
+     "name": "cutlass эпилог accumToSmem",
+     "why": "шаг 130 слов, 130 mod 32 = 2, резонанс с шагом СТОЛБЦА итератора (2 слова); 89.9 %",
+     "stride_words": 130,
+     "maps": [
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 1,
+       "argmin_pad": 1,
+       "wf0": 2.0,
+       "wf_best": 1.0,
+       "gain": 2.0
+      },
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 2,
+       "argmin_pad": 0,
+       "wf0": 1.0,
+       "wf_best": 1.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 4,
+       "lanes_per_row": 4,
+       "argmin_pad": 2,
+       "wf0": 2.0,
+       "wf_best": 1.0,
+       "gain": 2.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 1,
+       "argmin_pad": 0,
+       "wf0": 2.0,
+       "wf_best": 2.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 2,
+       "argmin_pad": 0,
+       "wf0": 2.0,
+       "wf_best": 2.0,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 8,
+       "lanes_per_row": 4,
+       "argmin_pad": 1,
+       "wf0": 4.0,
+       "wf_best": 2.0,
+       "gain": 2.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 1,
+       "argmin_pad": 0,
+       "wf0": 4,
+       "wf_best": 4,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 2,
+       "argmin_pad": 0,
+       "wf0": 4,
+       "wf_best": 4,
+       "gain": 1.0
+      },
+      {
+       "width_bytes": 16,
+       "lanes_per_row": 4,
+       "argmin_pad": 0,
+       "wf0": 4.0,
+       "wf_best": 4.0,
+       "gain": 1.0
+      }
+     ],
+     "argmin_set": [
+      0,
+      1,
+      2
+     ],
+     "universal_pads": [],
+     "minimax_regret_pad": 0,
+     "minimax_regret": 2.0,
+     "regret_pad0": 2.0
+    }
+   ]
+  }
+ ],
+ "errors": {},
+ "warnings": {
+  "conflict_share_shipped": [
+   "'volta_fwd_ws (байтовый форвард)': только доля 0.194, абсолютных счётчиков нет -- отношение арифметически НЕ ПРОВЕРЯЕМО"
+  ],
+  "phases_fwd_ws_anchor": [
+   "нет варианта 'снять ВСЕ фазы': невязка 22.3% НЕ РАЗДЕЛЕНА на перекрытие и неназванное -- доли суть НИЖНИЕ оценки",
+   "пар нет: поточечное перекрытие e_ij не мерено"
+  ]
+ },
+ "n_records": 5,
+ "n_rates": 16
+}

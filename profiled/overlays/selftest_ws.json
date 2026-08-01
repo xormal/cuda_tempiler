@@ -1,0 +1,80 @@
+{
+  "name": "selftest_ws",
+  "version": "1",
+  "comment": "САМОПРОВЕРКА МЕХАНИЗМА twin.py на боевом заголовке volta_fwd_ws.cuh. Две фазы -- ровно столько, сколько нужно, чтобы показать пару и её невязку. Полная разметка форварда/бэкварда живёт в своих наложениях.",
+  "prod_root": "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade",
+  "prod_include_dirs": [
+    "fa2_sm70/csrc",
+    "fa2_src/fmha_kernel",
+    "fa2_src/cutlass/include"
+  ],
+  "files": [
+    {
+      "file": "fa2_sm70/csrc/volta_fwd_ws.cuh",
+      "md5": "7abb56b280cb5b4162ab90af7aa3e99f",
+      "edits": [
+        {
+          "id": "mask-header",
+          "why": "определить маску FMHA_STRIP_MASK и макросы фаз; push_macro -- чтобы смысл не зависел от порядка включения заголовков",
+          "mode": "insert_after",
+          "anchor": "#define PH_OUT(dst)\n#endif",
+          "replace": "\n// ================================================================================================\n// [РАЗМЕТКА ФАЗ -- НАЛОЖЕНИЕ tools/twin.py, БОЕВОГО ФАЙЛА НЕТ НИ ОДНОГО БАЙТА]\n// ================================================================================================\n// Этот блок ПОРОЖДЁН, а не написан в боевом дереве. Он даёт МАСКУ фаз: снять любую комбинацию,\n// чтобы невязка 1 = SUM(s_i) + (s_all - SUM(s_i)) + (1 - s_all) разделилась на ПЕРЕКРЫТИЕ и\n// НЕНАЗВАННОЕ. Одним числом (прежний DIAG) снимается ровно одна фаза -- перекрытие тогда не\n// отделить от неназванного.\n//   бит 0  gemm1  первое умножение Q*K^T   (прежний DIAG=5)\n//   бит 1  gemm2  второе умножение P*V     (прежний DIAG=3)\n// Маска приходит ДВУМЯ путями и они сведены в одно kStrip:\n//   -DFMHA_STRIP_MASK=N при сборке (это подставляет twin.py build --mask N), и\n//   кодами 64..95 в СУЩЕСТВУЮЩЕМ параметре DIAG (64 + mask) -- новый параметр в конец списка\n//   менял бы УКРАШЕННОЕ ИМЯ всех прежних инстанцирований, и побайтового равенства с боевой\n//   сборкой было бы уже не доказать.\n#ifndef FMHA_STRIP_MASK\n#define FMHA_STRIP_MASK 0u\n#endif\n// [ПОЧЕМУ push_macro, А НЕ #ifndef] Те же имена определяет fa2_src/fmha_kernel/fwd_phase.h\n// (разметка ДРУГОГО форварда), и общий .cu включает оба заголовка. При голом #ifndef смысл\n// макроса зависел бы от ПОРЯДКА ВКЛЮЧЕНИЯ: переставили строки -- и маска молча превратилась в\n// `if constexpr (true)`, то есть фальсификатор стал бы боевым путём без единого признака.\n#pragma push_macro(\"FMHA_PHASE\")\n#pragma push_macro(\"FMHA_PHASE_ELSE\")\n#pragma push_macro(\"FMHA_PHASE_ON\")\n#pragma push_macro(\"FMHA_PHASE_OFF\")\n#undef FMHA_PHASE\n#undef FMHA_PHASE_ELSE\n#undef FMHA_PHASE_ON\n#undef FMHA_PHASE_OFF\n#define FMHA_PHASE(name, id)      if constexpr (!((kStrip) & (1u << (id))))\n#define FMHA_PHASE_ELSE(name, id) else\n#define FMHA_PHASE_ON(id)         (!((kStrip) & (1u << (id))))\n#define FMHA_PHASE_OFF(id)        (((kStrip) & (1u << (id))) != 0u)\n"
+        },
+        {
+          "id": "diag-default",
+          "why": "умолчание DIAG из макроса: -DFMHA_STRIP_MASK=N действует без правки диспетчера и не трогает список параметров шаблона",
+          "mode": "replace",
+          "anchor": "          int DIAG = 0,",
+          "replace": "          // [МАСКА ФАЗ -- ТОТ ЖЕ ПАРАМЕТР, КОДЫ 64..95] DIAG = 64 + mask снимает ЛЮБУЮ\n          // комбинацию фаз. Умолчание берётся из макроса FMHA_STRIP_MASK (0 в боевой сборке),\n          // поэтому `-DFMHA_STRIP_MASK=N` действует без правки диспетчера, а прежние одиночные\n          // коды DIAG=0..5 остаются побайтово прежними.\n          int DIAG = ((FMHA_STRIP_MASK) != 0u) ? (64 + (int)(unsigned)(FMHA_STRIP_MASK)) : 0,"
+        },
+        {
+          "id": "kstrip",
+          "why": "свести прежний одиночный DIAG и маску в одно kStrip",
+          "mode": "insert_after",
+          "anchor": "  constexpr bool kNoScale = (KVFMT == 4 || KVFMT == 5 || KVFMT == 7);",
+          "replace": "\n  // [СВЕДЕНИЕ ДВУХ ПУТЕЙ В ОДНУ МАСКУ] Прежний одиночный DIAG переводится в СВОЙ бит, маска\n  // добавляется поверх. Отсюда: DIAG == 0 -> kStrip == 0 -> ни одного `if constexpr` с истинным\n  // условием -> боевой путь побайтово прежний (это и проверяет twin.py build --mask 0).\n  constexpr unsigned kStripLegacy = (DIAG == 5) ? (1u << 0)      // первое умножение\n                                  : (DIAG == 3) ? (1u << 1)      // второе умножение\n                                                : 0u;\n  constexpr unsigned kStrip = kStripLegacy\n                            | ((DIAG >= 64 && DIAG < 96) ? (unsigned)(DIAG - 64) : 0u);"
+        },
+        {
+          "id": "phase0-gemm1",
+          "why": "фаза 0: первое умножение; затравка аккумулятора оставлена снаружи, иначе S свернётся в константу и утащит софтмакс",
+          "mode": "replace",
+          "anchor": "    if constexpr (DIAG != 5) s.template accumulate_bi8<D, KVFMT, SWZ, KSP>(sQ, LDQ, wm * SM, sK, LDK8, wn * SN, lane);",
+          "replace": "    // ФАЗА 0 (первое умножение): HMMA + чтение фрагментов Q/K. Затравка аккумулятора\n    // (seed_rank1) ОСТАЁТСЯ снаружи -- она читает sQsum из разделяемой, поэтому s.acc не\n    // сворачивается в константу и весь софтмакс ниже сохраняет зависимость от накопителя.\n    FMHA_PHASE(gemm1, 0) {\n      s.template accumulate_bi8<D, KVFMT, SWZ, KSP>(sQ, LDQ, wm * SM, sK, LDK8, wn * SN, lane);\n    }"
+        },
+        {
+          "id": "phase1-gemm2",
+          "why": "фаза 1: второе умножение; rescale_fold оставлен снаружи, иначе снятие фазы унесёт второй канал редукции sRedS",
+          "mode": "replace",
+          "anchor": "    if constexpr (DIAG != 3) o.template accumulate_bi8<BK, KVFMT>(sP, LDP, wm * OM, sV, LDV, wn * ON, lane);",
+          "replace": "    // ФАЗА 1 (второе умножение): HMMA + чтение фрагментов P/V. rescale_fold остаётся\n    // СНАРУЖИ -- он единственный потребитель vb_run, и, унеся его вместе с фазой, мы унесли бы\n    // ВЕСЬ второй канал редукции sRedS: замер приписал бы этой фазе чужую работу.\n    FMHA_PHASE(gemm2, 1) {\n      o.template accumulate_bi8<BK, KVFMT>(sP, LDP, wm * OM, sV, LDV, wn * ON, lane);\n    }"
+        },
+        {
+          "id": "mask-footer",
+          "why": "вернуть имена макросов владельцу",
+          "mode": "insert_after",
+          "anchor": "}  // namespace fwd_ws\n}  // namespace fa2_sm70",
+          "replace": "\n\n// Возвращаем имена разметки владельцу (см. пояснение у push_macro выше): за пределами этого\n// заголовка FMHA_PHASE снова означает то, что означал до него.\n#pragma pop_macro(\"FMHA_PHASE_OFF\")\n#pragma pop_macro(\"FMHA_PHASE_ON\")\n#pragma pop_macro(\"FMHA_PHASE_ELSE\")\n#pragma pop_macro(\"FMHA_PHASE\")"
+        }
+      ]
+    }
+  ],
+  "write": [
+    {
+      "path": "inst_ws.cu",
+      "text": "// ПОРОЖДЁН twin.py из наложения selftest_ws.json. Только инстанцирование: ядро НЕ ЗАПУСКАЕТСЯ,\n// сборка идёт на процессоре (nvcc -cubin + cuobjdump -sass).\n#include <cuda_fp16.h>\n#include \"volta_fwd_ws.cuh\"\ntemplate __global__ void fa2_sm70::fwd_ws::volta_fwd_ws<32,64,256,2,4,true,64,1,1,256>(\n  const __half*,const int8_t*,const float*,const int8_t*,const float*,__half*,float*,\n  int,int,float,int,int,\n  long,long,long,long,long,long,long,long,long,long,long,long,long,long long*,int*);\n"
+    }
+  ],
+  "build": {
+    "harness": "inst_ws.cu",
+    "steps": [
+      {
+        "name": "nvcc -cubin",
+        "cmd": "{nvcc} -arch=sm_70 -O3 -std=c++17 -cubin -Wno-deprecated-gpu-targets -ccbin /usr/bin/g++ {inc} -DFMHA_STRIP_MASK={mask}u {extra} -o {outdir}/{name}.cubin {harness}"
+      },
+      {
+        "name": "cuobjdump -sass",
+        "cmd": "{cuobjdump} -sass {outdir}/{name}.cubin > {outdir}/{name}.sass"
+      }
+    ]
+  }
+}

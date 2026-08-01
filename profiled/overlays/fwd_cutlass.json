@@ -1,0 +1,151 @@
+{
+ "name": "fwd_cutlass",
+ "version": "1",
+ "prod_root": "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade",
+ "files": [
+  {
+   "file": "fa2_src/fmha_kernel/kernel_forward.h",
+   "md5": "37d263297615db17d7336b4fb48a1e61",
+   "edits": [
+    {
+     "anchor": "#include \"transform/tile_smem_loader.h\"\n\nusing namespace gemm_kernel_utils;\n",
+     "replace": "#include \"transform/tile_smem_loader.h\"\n#include \"fwd_phase.h\"  // фазовая разметка; при FMHA_STRIP_MASK=0 разворачивается в НОЛЬ команд\nusing namespace gemm_kernel_utils;\n",
+     "id": "00-#include \"transform/tile_smem_loader.h\"",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "    static_assert(kQueriesPerBlock < kNumWarpsPerBlock * kWarpSize, \"\");\n    if (thread_id() < kQueriesPerBlock) {\n      s_prime[thread_id()] = accum_t(0);\n      out_rescale[thread_id()] = accum_t(1.0);\n      m_prime[thread_id()] =\n          -cutlass::platform::numeric_limits<accum_t>::infinity();\n      mi[thread_id()] = -cutlass::platform::numeric_limits<accum_t>::infinity();\n    }\n",
+     "replace": "    static_assert(kQueriesPerBlock < kNumWarpsPerBlock * kWarpSize, \"\");\n    // [ФАЗА 0: prolog] Инициализация состояния онлайн-софтмакса в разделяемой. Отпечаток снятия:\n    // -4 STS.32 (и вся адресная арифметика вокруг). Подстановка НЕ НУЖНА и намеренно пуста:\n    // значения остаются неинициализированной РАЗДЕЛЯЕМОЙ памятью, компилятору они неизвестны,\n    // поэтому ни одна другая фаза не сворачивается.\n    FMHA_PHASE(prolog, 0) {\n      if (thread_id() < kQueriesPerBlock) {\n        s_prime[thread_id()] = accum_t(0);\n        out_rescale[thread_id()] = accum_t(1.0);\n        m_prime[thread_id()] =\n            -cutlass::platform::numeric_limits<accum_t>::infinity();\n        mi[thread_id()] =\n            -cutlass::platform::numeric_limits<accum_t>::infinity();\n      }\n    }\n    FMHA_PHASE_ELSE(prolog, 0) {\n      FMHA_SEAL(); // разметке нужна пломба в кадре фазы; здесь она пуста по построению\n    }\n",
+     "id": "01-prolog(бит 0)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "      // Compute threadblock-scoped matrix multiply-add\n      mma(gemm_k_iterations, accum, iterator_A, iterator_B, accum);\n      __syncthreads();\n",
+     "replace": "      // Compute threadblock-scoped matrix multiply-add\n      // [ФАЗА 1: gemm1] Мейнлуп Q*K^T целиком: подача Q/K из глобальной, укладка в разделяемую,\n      // HMMA.884 первого умножения. Отпечаток снятия: HMMA первого умножения, LDG/STS/LDS\n      // операндов Q и K, а также конструкторы iterator_A/iterator_B (их выбрасывает DCE --\n      // это ЖЕЛАЕМОЕ поведение: адресация Q/K принадлежит именно этой фазе).\n      // Подстановка обязательна: без неё accum остаётся нулём -> максимум строки сворачивается\n      // в константу -> exp2 сворачивается -> уносит софтмакс и второе умножение.\n      FMHA_PHASE(gemm1, 1) {\n        mma(gemm_k_iterations, accum, iterator_A, iterator_B, accum);\n      }\n      FMHA_PHASE_ELSE(gemm1, 1) {\n        FWD_DECOY_ARR(accum, MM0::Mma::FragmentC::kElements);\n      }\n      __syncthreads();\n",
+     "id": "02-gemm1(бит 1)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "\n      if (kPreloadV) {\n        prologueV(0);\n      } else {\n        MM1::Mma::drain_cp_asyncs();\n      }\n",
+     "replace": "\n      // [ФАЗА 4a: gemm2] Пролог подачи V (staging Vj в разделяемую) -- часть второго умножения.\n      FMHA_PHASE(gemm2, 4) {\n        if (kPreloadV) {\n          prologueV(0);\n        } else {\n          MM1::Mma::drain_cp_asyncs();\n        }\n      }\n      FMHA_PHASE_ELSE(gemm2, 4) {\n        FMHA_SEAL(); // подстановка второго умножения стоит на его ОСНОВНОМ кадре, ниже\n      }\n",
+     "id": "03-gemm2(бит 4)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "\n      MM0::B2bGemm::accumToSmem(\n          shared_storage.after_mm0.si, accum, my_lane_id, output_tile_coords);\n\n",
+     "replace": "\n      // [ФАЗА 3: pstore] Выкладка P(=exp(S-m)) из регистров в разделяемую -- операнд A второго\n      // умножения. Отдельная фаза, потому что это ТОТ ЖЕ канал (STS), что и у эпилога, и\n      // разделить их долю иначе нечем. Отпечаток снятия: STS выкладки P (плюс конверсия в half).\n      // Подстановка не нужна: si -- разделяемая память, её чтение компилятор не сворачивает.\n      FMHA_PHASE(pstore, 3) {\n        MM0::B2bGemm::accumToSmem(\n            shared_storage.after_mm0.si, accum, my_lane_id, output_tile_coords);\n      }\n      FMHA_PHASE_ELSE(pstore, 3) {\n        FMHA_SEAL(); // подстановка не требуется: приёмник -- разделяемая память\n      }\n\n",
+     "id": "04-pstore(бит 3)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "        }\n\n        typename MM1::Mma::IteratorB iterator_V(\n            typename MM1::IteratorB::Params{typename MM1::LayoutB(p.v_strideM)},\n",
+     "replace": "        }\n\n        // [ФАЗА 4b: gemm2] Основной кадр второго умножения P*V. Порядок строк НЕ ТРОНУТ\n        // (accum_o.clear() оставлен на своём месте внутри кадра, а в подстановке продублирован),\n        // чтобы боевой SASS совпал побайтово. Отпечаток снятия: HMMA второго умножения,\n        // LDG/STS операнда V, LDS операнда P из si.\n        FMHA_PHASE(gemm2, 4) {\n        typename MM1::Mma::IteratorB iterator_V(\n            typename MM1::IteratorB::Params{typename MM1::LayoutB(p.v_strideM)},\n",
+     "id": "05-gemm2(бит 4)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "        mma_pv(gemm_k_iterations, accum_o, iterator_V, accum_o);\n        __syncthreads();\n",
+     "replace": "        mma_pv(gemm_k_iterations, accum_o, iterator_V, accum_o);\n        }\n        FMHA_PHASE_ELSE(gemm2, 4) {\n          if (!kKeepOutputInRF) {\n            accum_o.clear();\n          }\n          // ПЕРЕСЧЁТ: при kKeepOutputInRF накопитель O переносится между блоками ключей и\n          // домножается на out_rescale ВНУТРИ софтмакса. Чистая замена убила бы этот пересчёт,\n          // то есть чужую фазу.\n          FWD_DECOY_MIX_ARR(accum_o, MM1::Mma::FragmentC::kElements);\n        }\n        __syncthreads();\n",
+     "id": "06-gemm2(бит 4)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "\n        if (kPreloadV && !kSingleValueIteration && blockN + 1 < nBlockN) {\n",
+     "replace": "\n        FMHA_PHASE(gemm2, 4) {\n        if (kPreloadV && !kSingleValueIteration && blockN + 1 < nBlockN) {\n",
+     "id": "07-gemm2(бит 4)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "          prologueV(blockN + 1);\n        }\n",
+     "replace": "          prologueV(blockN + 1);\n        }\n        }\n        FMHA_PHASE_ELSE(gemm2, 4) {\n          FMHA_SEAL(); // подстановка второго умножения стоит на его основном кадре выше\n        }\n",
+     "id": "08-gemm2(бит 4)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "          MM1::Mma::drain_cp_asyncs();\n          DISPATCH_BOOL(\n",
+     "replace": "          MM1::Mma::drain_cp_asyncs();\n          // [ФАЗА 5a: epilog] ПОБЛОЧНЫЙ эпилог (путь d>128, kKeepOutputInRF=false): круг\n          // накопителя O через РАЗДЕЛЯЕМУЮ (WarpTileIterator::store -> barrier ->\n          // SharedLoadIterator::load), нормировка на s_prime и запись O в глобальную. Это тот\n          // самый массив, на который пришлось 89.9% конфликтов банков форварда. Здесь -- ЕДИНСТВЕННАЯ\n          // граница, где чужой шаблонный эпилог cutlass вызывается из НАШЕГО кода.\n          // Отпечаток снятия: STG выхода -> 0, STS/LDS эпилога -> 0, FFMA нормировки -> 0.\n          // Подстановка ОБЯЗАТЕЛЬНА: без потребителя accum_o мёртв -> DCE уносит ОБА умножения.\n          FMHA_PHASE(epilog, 5) {\n          DISPATCH_BOOL(\n",
+     "id": "09-epilog(бит 5)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "              }));\n          if (!kSingleValueIteration) {\n",
+     "replace": "              }));\n          }\n          FMHA_PHASE_ELSE(epilog, 5) {\n            FWD_SINK_ARR(\n                reinterpret_cast<accum_t*>(p.output_accum_ptr),\n                accum_o,\n                MM1::Mma::FragmentC::kElements);\n          }\n          if (!kSingleValueIteration) {\n",
+     "id": "10-epilog(бит 5)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "    if (kKeepOutputInRF) {\n      constexpr bool kIsFirst = true;\n",
+     "replace": "    if (kKeepOutputInRF) {\n      // [ФАЗА 5b: epilog] ОДНОКРАТНЫЙ эпилог (путь d<=128, kKeepOutputInRF=true). ВАЖНО: он\n      // идёт через ТУ ЖЕ разделяемую память -- kKeepOutputInRF убирает не круг через smem, а его\n      // ПОВТОРЕНИЕ на каждом блоке ключей. Оба кадра носят один id, поэтому одна маска снимает\n      // эпилог целиком на любой геометрии.\n      FMHA_PHASE(epilog, 5) {\n      constexpr bool kIsFirst = true;\n",
+     "id": "11-epilog(бит 5)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "      epilogue(rescale, dest_iter, accum_o);\n    }\n",
+     "replace": "      epilogue(rescale, dest_iter, accum_o);\n      }\n      FMHA_PHASE_ELSE(epilog, 5) {\n        FWD_SINK_ARR(\n            reinterpret_cast<accum_t*>(p.output_accum_ptr),\n            accum_o,\n            MM1::Mma::FragmentC::kElements);\n      }\n    }\n",
+     "id": "12-epilog(бит 5)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "\n    if (logit_softcap > 0.f) {\n      // Gemma-style attention logit soft-capping: logit -> cap*tanh(scale*logit/cap), then softmax.\n      // Applied per element in the log2 domain; masked entries (-inf) are preserved (tanh(-inf) = -1\n      // would otherwise leak finite mass). One-sided masks set exactly -inf, tested below.\n      const float inv = 1.0f / logit_softcap, s2 = scaling, capL2 = logit_softcap * kLog2e;\n      CUTLASS_PRAGMA_UNROLL\n      for (int e = 0; e < Fragment::kElements; ++e) {\n        float v = frag[e];\n        frag[e] = (v == -cutlass::platform::numeric_limits<accum_t>::infinity())\n            ? v : capL2 * tanhf(s2 * v * inv);\n      }\n    } else {\n      frag = cutlass::multiplies<Fragment>()(scaling * kLog2e, frag);\n    }\n",
+     "replace": "\n    // [ФАЗА 2: softmax] Онлайн-софтмакс разбит на ПЯТЬ кадров одной фазы (id 2), потому что\n    // между ними стоят РАНДЕВУ (__syncthreads). Защёлки оставлены СНАРУЖИ кадров намеренно:\n    // иначе снятие фазы уносило бы и барьеры, и мерилась бы «фаза плюс защёлка».\n    // Отпечаток снятия (весь id 2): MUFU.EX2 -> 0, MUFU.TANH/RCP софткапа -> 0, FMNMX\n    // (построчный максимум) -> 0, ATOMS/RED на mi -> 0.\n    FMHA_PHASE(softmax, 2) {\n      if (logit_softcap > 0.f) {\n        // Gemma-style attention logit soft-capping: logit -> cap*tanh(scale*logit/cap), then\n        // softmax. Applied per element in the log2 domain; masked entries (-inf) are preserved\n        // (tanh(-inf) = -1 would otherwise leak finite mass). One-sided masks set exactly -inf.\n        const float inv = 1.0f / logit_softcap, s2 = scaling,\n                    capL2 = logit_softcap * kLog2e;\n        CUTLASS_PRAGMA_UNROLL\n        for (int e = 0; e < Fragment::kElements; ++e) {\n          float v = frag[e];\n          frag[e] =\n              (v == -cutlass::platform::numeric_limits<accum_t>::infinity())\n              ? v\n              : capL2 * tanhf(s2 * v * inv);\n        }\n      } else {\n        frag = cutlass::multiplies<Fragment>()(scaling * kLog2e, frag);\n      }\n    }\n    FMHA_PHASE_ELSE(softmax, 2) {\n      // ПЕРЕСЧЁТ, а не замена: frag -- выход ПЕРВОГО умножения. Чистая замена оставляла\n      // gemm1 без потребителя, и снятие софтмакса уносило 128 HMMA чужой фазы (замерено).\n      FWD_DECOY_MIX_ARR(frag, Fragment::kElements);\n    }\n",
+     "id": "13-softmax(бит 2)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "    // First update `mi` to the max per-row\n    {\n      accum_t max;\n",
+     "replace": "    // First update `mi` to the max per-row\n    FMHA_PHASE(softmax, 2) {\n      accum_t max;\n",
+     "id": "14-softmax(бит 2)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "          });\n    }\n\n    // Make sure we all share the update values for `mi`\n",
+     "replace": "          });\n    }\n    FMHA_PHASE_ELSE(softmax, 2) {\n      FMHA_SEAL(); // подстановка фазы стоит на её первом кадре\n    }\n\n    // Make sure we all share the update values for `mi`\n",
+     "id": "15-softmax(бит 2)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "    bool restore_mi_to_minus_inf = false;\n    if (lane_id < kLinesPerWarp) {\n",
+     "replace": "    bool restore_mi_to_minus_inf = false;\n    FMHA_PHASE(softmax, 2) {\n    if (lane_id < kLinesPerWarp) {\n",
+     "id": "16-softmax(бит 2)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "    }\n    __syncthreads(); // Update output fragments\n    if (kKeepOutputInRF && !is_first) {\n",
+     "replace": "    }\n    }\n    FMHA_PHASE_ELSE(softmax, 2) {\n      FMHA_SEAL(); // подстановка фазы стоит на её первом кадре\n    }\n    __syncthreads(); // Update output fragments\n    FMHA_PHASE(softmax, 2) {\n    if (kKeepOutputInRF && !is_first) {\n",
+     "id": "17-softmax(бит 2)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "    }\n    __syncthreads();\n    if (lane_id < kLinesPerWarp) {\n",
+     "replace": "    }\n    }\n    FMHA_PHASE_ELSE(softmax, 2) {\n      FMHA_SEAL(); // подстановка фазы стоит на её первом кадре\n    }\n    __syncthreads();\n    FMHA_PHASE(softmax, 2) {\n    if (lane_id < kLinesPerWarp) {\n",
+     "id": "18-softmax(бит 2)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    },
+    {
+     "anchor": "      s_prime[id] = total_row;\n    }\n",
+     "replace": "      s_prime[id] = total_row;\n    }\n    }\n    FMHA_PHASE_ELSE(softmax, 2) {\n      FMHA_SEAL(); // подстановка фазы стоит на её первом кадре\n    }\n",
+     "id": "19-softmax(бит 2)",
+     "why": "разметка фазы для снятия по FMHA_STRIP_MASK"
+    }
+   ]
+  }
+ ],
+ "add": [
+  {
+   "path": "fa2_src/fmha_kernel/fwd_phase.h",
+   "from": "./profiled/fwdc/fwd_phase.h"
+  },
+  {
+   "path": "fa2_src/fmha_kernel/fmha_phase.h",
+   "from": "./tools/fmha_phase.h"
+  },
+  {
+   "path": "inst_fwd.cu",
+   "from": "./profiled/fwdc/inst_fwd.cu"
+  }
+ ],
+ "prod_include_dirs": [
+  "fa2_src/cutlass/include",
+  "fa2_src/fmha_kernel"
+ ]
+}

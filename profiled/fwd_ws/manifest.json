@@ -1,0 +1,204 @@
+{
+  "name": "fwd_ws",
+  "version": "1",
+  "generated_at": "2026-08-01T19:30:16",
+  "generated_by": "./tools/twin.py",
+  "overlay": "./profiled/spec/overlay_fwd_ws.json",
+  "overlay_md5": "61700463d4407f18e560517976a718f3",
+  "prod_root": "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade",
+  "note": "ДВОЙНИК ПОРОЖДЁН, А НЕ СКОПИРОВАН. Править файлы в этом каталоге руками НЕЛЬЗЯ: правки будут стёрты следующим `twin.py gen` и, что хуже, не попадут в ворота дрейфа. Правьте наложение.",
+  "files": [
+    {
+      "file": "fa2_sm70/csrc/volta_fwd_ws.cuh",
+      "src_md5": "7abb56b280cb5b4162ab90af7aa3e99f",
+      "twin": "./profiled/fwd_ws/fa2_sm70/csrc/volta_fwd_ws.cuh",
+      "twin_md5": "1ca657d1d2c348abf8728711909ea371",
+      "edits": 18,
+      "bytes_src": 58563,
+      "bytes_twin": 70317,
+      "anchors": [
+        {
+          "id": "macros",
+          "why": "макросы разметки FMHA_PHASE/_ELSE/_ON/_OFF + FMHA_STRIP_MASK и push_macro-заём имён (те же имена определяет fwd_phase.h ДРУГОГО форварда)",
+          "mode": "replace",
+          "line_in_prod": 114,
+          "anchor": "#endif\n#define FA2_DUNROLL 1\n",
+          "anchor_md5": "155a033e3d005b4408bf2ab8189c5d9a"
+        },
+        {
+          "id": "seal_fn",
+          "why": "пломба по значению ws_seal_one/ws_seal_all: одна команда PRMT, битово тождественная",
+          "mode": "replace",
+          "line_in_prod": 125,
+          "anchor": "#endif\n\n",
+          "anchor_md5": "534d607c45bd5206a4bd7a629357ebc2"
+        },
+        {
+          "id": "diag_param",
+          "why": "умолчание DIAG берётся из -DFMHA_STRIP_MASK; список шаблонных параметров НЕ трогается, поэтому украшенные имена прежних инстанцирований целы",
+          "mode": "replace",
+          "line_in_prod": 154,
+          "anchor": "          int DIAG = 0,\n",
+          "anchor_md5": "b1c426b40e6c1e8ee87ac3bea0f5ef14"
+        },
+        {
+          "id": "kstrip",
+          "why": "сведение прежнего одиночного DIAG и кода маски (64+mask) в одну kStrip; DIAG=0 -> kStrip=0 -> боевой путь",
+          "mode": "replace",
+          "line_in_prod": 299,
+          "anchor": "  constexpr bool kNoScale = (KVFMT == 4 || KVFMT == 5 || KVFMT == 7);\n  PH_DECL\n",
+          "anchor_md5": "ee808148daa93a5b1d888d8a5b0186c3"
+        },
+        {
+          "id": "ph3_feed",
+          "why": "ФАЗА 3 (подача): весь перенос K/V из глобальной в разделяемую; рандеву оставлено СНАРУЖИ",
+          "mode": "replace",
+          "line_in_prod": 478,
+          "anchor": "        if constexpr (DIAG == 4) { /* ФАЛЬСИФИКАТОР: подача снята, рандеву оставлено */ } else {\n",
+          "anchor_md5": "4ed874e3b790e59781f29a7477c5207a"
+        },
+        {
+          "id": "sink_tile",
+          "why": "насильный потребитель адресации плитки sK/sV -- против каскада при снятии ОБОИХ умножений (по умолчанию ВЫКЛЮЧЕН, см. вердикт замера)",
+          "mode": "replace",
+          "line_in_prod": 633,
+          "anchor": "    const int8_t* sV = sK + BK * LDK8;\n    PH(0);   // ФАЗА 0: барьер входа\n",
+          "anchor_md5": "a125947ad22bb1f4b548d6d0c2861fbf"
+        },
+        {
+          "id": "ph0_gemm1",
+          "why": "ФАЗА 0 (первое умножение Q*K^T): HMMA + чтение фрагментов; затравка аккумулятора остаётся снаружи",
+          "mode": "replace",
+          "line_in_prod": 685,
+          "anchor": "    if constexpr (DIAG != 5) s.template accumulate_bi8<D, KVFMT, SWZ, KSP>(sQ, LDQ, wm * SM, sK, LDK8, wn * SN, lane);\n",
+          "anchor_md5": "beb2860a465a7ebcefb80e0e71680c02"
+        },
+        {
+          "id": "ph2a_softmax",
+          "why": "ФАЗА 2, место 1/5: маска, масштаб ключа, поэлементный максимум (в скобках -- иначе scan не видит границ фазы)",
+          "mode": "replace",
+          "line_in_prod": 705,
+          "anchor": "    if constexpr (DIAG == 1) {\n      // фальсификатор: максимум не считается вовсе, но ЗАВИСИМОСТЬ от накопителя сохранена\n      // (константа нулевая, но лежит в постоянной памяти -- свернуть её компилятор не вправе)\n      const float z = (float)fa2_sm70::prims::kFakeXorMask;\n      s.visit(lane, [&](float& v, int r, int c) { v = v * z; });\n    } else\n",
+          "anchor_md5": "03d1fc78dffc2341cd3752b20fa9ac2a"
+        },
+        {
+          "id": "ph2b_else",
+          "why": "ПОДСТАНОВКА фазы 2 (v*z через постоянную память) + закрывающая скобка + ФАЗА 2, место 2/5",
+          "mode": "replace",
+          "line_in_prod": 723,
+          "anchor": "    });\n#pragma unroll\n",
+          "anchor_md5": "08148643e96c8d08bb8748098895f9f2"
+        },
+        {
+          "id": "ph2c_maxred",
+          "why": "ФАЗА 2, место 2/5: варповая редукция максимума",
+          "mode": "replace",
+          "line_in_prod": 728,
+          "anchor": "        if constexpr (DIAG == 1) break;      // фальсификатор: редукция максимума снята\n",
+          "anchor_md5": "50720e4cde211d5762da6b995c996493"
+        },
+        {
+          "id": "ph4a_rendez",
+          "why": "ФАЗА 4 (рандеву), встреча 1 из 2: тело фазы -- ТОЛЬКО защёлка",
+          "mode": "replace",
+          "line_in_prod": 733,
+          "anchor": "        if ((lane & 6) == 0) sRedM[(wm * SM + i * 16 + rowbase + 2 * t) * WN + wn] = x;\n      }\n    if constexpr (DIAG != 2) {\n      if constexpr (PHSPLIT) asm volatile(\"bar.sync %0, %1;\" :: \"r\"(4 + wm), \"r\"(kConsThr / WM));\n      else                   asm volatile(\"bar.sync 3, %0;\" :: \"r\"(kConsThr));\n",
+          "anchor_md5": "6c6c3aa49b50749ae0534a84b268b16c"
+        },
+        {
+          "id": "ph2d_exp2_p0",
+          "why": "ФАЗА 2, место 3/5: exp2 и сравнения с -inf для p0; подстановка 0.5+v СОХРАНЯЕТ зависимость P от накопителя",
+          "mode": "replace",
+          "line_in_prod": 773,
+          "anchor": "            // DIAG=1: exp2 и сравнения сняты, зависимость от накопителя S оставлена\n            const float p0 = (DIAG == 1) ? (0.5f + v0)\n",
+          "anchor_md5": "3da3f0df1df5046ab17802e1a8f701d3"
+        },
+        {
+          "id": "ph2d_exp2_p1",
+          "why": "то же для p1 -- ОТДЕЛЬНАЯ подстановка на ДРУГОЕ значение (одинаковые непрозрачные значения склеиваются CSE)",
+          "mode": "replace",
+          "line_in_prod": 776,
+          "anchor": "            const float p1 = (DIAG == 1) ? (0.5f + v1)\n",
+          "anchor_md5": "62330f1edbb52dff29d41b28ac8a8518"
+        },
+        {
+          "id": "ph2e_sumred",
+          "why": "ФАЗА 2, место 4/5: редукция сумм по варпам",
+          "mode": "replace",
+          "line_in_prod": 802,
+          "anchor": "        if constexpr (DIAG == 1) break;      // фальсификатор: редукция сумм снята\n",
+          "anchor_md5": "363fbd972c0aa68c6366f7038fae87c4"
+        },
+        {
+          "id": "ph4b_rendez",
+          "why": "ФАЗА 4, встреча 2 из 2",
+          "mode": "replace",
+          "line_in_prod": 809,
+          "anchor": "        }\n      }\n    if constexpr (DIAG != 2) {\n      if constexpr (PHSPLIT) asm volatile(\"bar.sync %0, %1;\" :: \"r\"(4 + wm), \"r\"(kConsThr / WM));\n      else                   asm volatile(\"bar.sync 3, %0;\" :: \"r\"(kConsThr));\n",
+          "anchor_md5": "8eaaa718ad898fc0802a0589ab75feed"
+        },
+        {
+          "id": "ph2f_rowsum",
+          "why": "ФАЗА 2, место 5/5: сведение построчных сумм, подстановка -- нейтральные значения",
+          "mode": "replace",
+          "line_in_prod": 820,
+          "anchor": "        if constexpr (DIAG == 1) { l_run[i][t] = 1.f; vb_run[i][t] = 0.f; corr2[i][t] = 1.f; break; }\n",
+          "anchor_md5": "6fabcea5ed4e29916ef3897d5cc1de2b"
+        },
+        {
+          "id": "ph1_gemm2",
+          "why": "ФАЗА 1 (второе умножение P*V); rescale_fold остаётся СНАРУЖИ -- он единственный потребитель vb_run и унёс бы второй канал редукции sRedS",
+          "mode": "replace",
+          "line_in_prod": 846,
+          "anchor": "    if constexpr (DIAG != 3) o.template accumulate_bi8<BK, KVFMT>(sP, LDP, wm * OM, sV, LDV, wn * ON, lane);\n",
+          "anchor_md5": "eeea0b8781c82074b7e84b417b12e322"
+        },
+        {
+          "id": "pop_macro",
+          "why": "возврат заёмных имён владельцу в конце заголовка",
+          "mode": "replace",
+          "line_in_prod": 909,
+          "anchor": "}  // namespace fa2_sm70\n",
+          "anchor_md5": "15023292d30e0cc557a8d2be0381c955"
+        }
+      ]
+    },
+    {
+      "file": "fa2_sm70/csrc/attn_fwd_cutlass.cu",
+      "src_md5": "7f71701ec5f7180d4a6377ce7025b1ef",
+      "twin": "./profiled/fwd_ws/fa2_sm70/csrc/attn_fwd_cutlass.cu",
+      "twin_md5": "3720a5f74da181e145f6dedcef9602d4",
+      "edits": 2,
+      "bytes_src": 80310,
+      "bytes_twin": 83928,
+      "anchors": [
+        {
+          "id": "maskfam",
+          "why": "семейство маски: 32 инстанцирования x causal/не-causal через рекурсию по шаблону ws_mask_pick",
+          "mode": "replace",
+          "line_in_prod": 687,
+          "anchor": "//               нарушении -- молчаливый откат на узкую перекладку.\nstd::tuple<torch::Tensor, torch::Tensor> attn_fwd_volta_i8(\n",
+          "anchor_md5": "b717cf5c27666da50e4c108564d0faf4"
+        },
+        {
+          "id": "dispatch",
+          "why": "ветвь диспетчера var = 32 + mask (nosc = var*100 + 8). var 32 = маска 0 = БОЕВОЙ путь ЧЕРЕЗ ТУ ЖЕ ветвь -- база разложения обязана идти тем же маршрутом",
+          "mode": "replace",
+          "line_in_prod": 804,
+          "anchor": "        else if (f == 8 && var == 15) kern = FA2_WS_DIAG(8, 5);   // ФАЛЬСИФИКАТОР: без первого умножения\n        else TORCH_CHECK(false, \"volta fwd i8: нет варианта для nosc=\", nosc);\n",
+          "anchor_md5": "916959f64a0098d6ac07603e8fe4d90a"
+        }
+      ]
+    }
+  ],
+  "added": [],
+  "twin_include_dirs": [
+    "./profiled/fwd_ws/fa2_sm70/csrc"
+  ],
+  "prod_include_dirs": [
+    "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade/fa2_sm70/csrc",
+    "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade/fa2_src/fmha_kernel",
+    "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade/fa2_src/cutlass/include"
+  ],
+  "build": {}
+}

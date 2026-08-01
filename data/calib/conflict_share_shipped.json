@@ -1,0 +1,89 @@
+{
+ "schema": "tempo/calib/1",
+ "id": "conflict_share_shipped",
+ "kind": "conflict_share",
+ "quantity": "доля трафика разделяемой памяти, добавленная БАНКОВЫМИ КОНФЛИКТАМИ (то есть возвратимая дополнением раскладки)",
+ "units": "доля вайвфронтов",
+ "taken_with": {
+  "tool": "tools/bankaudit.py + tools/ncu.py",
+  "counter": "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_{ld,st} / вайвфронты",
+  "version": "2024.1.1"
+ },
+ "shape": {
+  "note": "малые формы намеренно: доля -- свойство раскладки, а не размера задачи",
+  "fwd": "B1 H2 S512 D128 causal",
+  "decode": "EPT=4"
+ },
+ "card": {
+  "index": null,
+  "foreign_procs": "не применимо",
+  "note": "счётчик конфликтов от соседа по карте не зависит"
+ },
+ "observability": "без_возмущения",
+ "observability_why": "счётчики, правки кода не требуют",
+ "provenance": {
+  "source": [
+   "data/ncu/fwd128_run.txt",
+   "data/ncu/selftest_ncu.txt",
+   "data/smem_lint_selftest.txt",
+   "data/smem_lint_verify.txt"
+  ],
+  "date": "2026-08-01",
+  "who": "задача 105, аудит конфликтности банков"
+ },
+ "binds": [
+  {
+   "symbol": "MIO_CONFLICT_SHARE.fwd_cutlass",
+   "value": 0.2082,
+   "note": "эпилог накопителя B2bGemm.accumToSmem, STS.64 с 8-кратным конфликтом"
+  },
+  {
+   "symbol": "MIO_CONFLICT_SHARE.volta_fwd_ws",
+   "value": 0.194,
+   "note": "sQ (шаг 130 слов), sRedM, sRedS; плитка K (LDK8=68 слов) -- 74.5 % конфликтов ядра"
+  },
+  {
+   "symbol": "MIO_CONFLICT_SHARE.bwd_cutlass",
+   "value": 0.3465,
+   "note": "тот же accumToSmem; 289 команд из 7424 трогают shared, верхние все STS.64 N-way 8"
+  },
+  {
+   "symbol": "MIO_CONFLICT_SHARE.split_defer_mqa",
+   "value": 0.012,
+   "note": "ЧИСТО: вайвфронты есть, конфликтов нет"
+  }
+ ],
+ "payload": {
+  "rows": [
+   {
+    "kernel": "attention_kernel_batched_impl (forward, cutlass)",
+    "wavefronts": 1427260.0,
+    "conflicts": 297090.0,
+    "fraction": 0.2082,
+    "where": "эпилог накопителя B2bGemm.accumToSmem, STS.64 с 8-кратным конфликтом"
+   },
+   {
+    "kernel": "volta_fwd_ws (байтовый форвард)",
+    "wavefronts": null,
+    "conflicts": null,
+    "fraction": 0.194,
+    "where": "sQ (шаг 130 слов), sRedM, sRedS; плитка K (LDK8=68 слов) -- 74.5 % конфликтов ядра"
+   },
+   {
+    "kernel": "attention_kernel_backward_batched_impl",
+    "wavefronts": 4932840.0,
+    "conflicts": 1709240.0,
+    "fraction": 0.3465,
+    "where": "тот же accumToSmem; 289 команд из 7424 трогают shared, верхние все STS.64 N-way 8"
+   },
+   {
+    "kernel": "split_defer_mqa_kernel (декод, EPT=4)",
+    "wavefronts": 11460.0,
+    "conflicts": 132.0,
+    "fraction": 0.012,
+    "where": "ЧИСТО: вайвфронты есть, конфликтов нет"
+   }
+  ],
+  "note": "модель по умолчанию (конфликтность=1) предсказывает ноль конфликтов ВЕЗДЕ; невязка равна самой доле."
+ }
+}

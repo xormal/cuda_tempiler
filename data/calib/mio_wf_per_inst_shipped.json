@@ -1,0 +1,73 @@
+{
+ "schema": "tempo/calib/1",
+ "id": "mio_wf_per_inst_shipped",
+ "kind": "wf_per_inst",
+ "quantity": "средняя цена ОДНОЙ команды разделяемой памяти в отгруженном ядре",
+ "units": "вайвфронтов на команду",
+ "taken_with": {
+  "tool": "ncu 2024.1.1 через tools/ncu.py",
+  "counter": "l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld / число команд LDS",
+  "version": "2024.1.1"
+ },
+ "shape": {
+  "kernels": [
+   "volta_fwd_block",
+   "volta_fwd_ws (фаза 0)",
+   "volta_fwd_ws (фаза 7)"
+  ],
+  "note": "формы малые: цена -- свойство РАСКЛАДКИ"
+ },
+ "card": {
+  "index": null,
+  "foreign_procs": "не применимо",
+  "note": "число чужих процессов в исходном отчёте не записано; счётчик от соседа не зависит, поэтому запись годна, а ВРЕМЕННЫЕ выводы из неё -- нет"
+ },
+ "observability": "без_возмущения",
+ "observability_why": "счётчик, правки кода не требует",
+ "provenance": {
+  "source": [
+   "README.md:383-385",
+   "tools/tempo.py:133-137"
+  ],
+  "date": "2026-08-01",
+  "who": "аудит конфликтности банков"
+ },
+ "binds": [
+  {
+   "symbol": "MIO_WF_PER_INST.volta_fwd_block",
+   "value": 2.054,
+   "note": "замер ncu; модельная номинальная ставка 2.054"
+  },
+  {
+   "symbol": "MIO_WF_PER_INST.volta_fwd_ws",
+   "value": 2.221,
+   "note": "замер ncu; модельная номинальная ставка 1.874"
+  }
+ ],
+ "payload": {
+  "rows": [
+   {
+    "kernel": "volta_fwd_block",
+    "mix": "8 Б:288, 16 Б:8",
+    "model_nominal": 2.054,
+    "model_safe": 1.027,
+    "measured": 2.054
+   },
+   {
+    "kernel": "volta_fwd_ws (фаза 0)",
+    "mix": "4 Б:66, 8 Б:86, 16 Б:22",
+    "model_nominal": 1.874,
+    "model_safe": 1.126,
+    "measured": 2.221
+   },
+   {
+    "kernel": "volta_fwd_ws (фаза 7)",
+    "mix": "4 Б:66, 8 Б:82, 16 Б:22",
+    "model_nominal": 1.871,
+    "model_safe": 1.129,
+    "measured": 2.25
+   }
+  ],
+  "note": "volta_fwd_block: замер = номинальная ставка ДО ТРЕТЬЕГО ЗНАКА -- совпадающих адресов между полосами в наших ядрах НЕТ ВОВСЕ. volta_fwd_ws: замер ВЫШЕ ставки -- это банковые конфликты, которых модель не видит, значит ставка 'ширина*32' не является и верхней оценкой."
+ }
+}

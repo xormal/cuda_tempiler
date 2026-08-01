@@ -1,0 +1,2 @@
+# Measurement outputs are fixed records; their spacing is data, not source formatting.
+data/** -whitespace
