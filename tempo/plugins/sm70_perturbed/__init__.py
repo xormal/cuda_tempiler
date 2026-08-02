@@ -55,7 +55,9 @@ class PerturbedMachine:
     def channels(self):
         out = {}
         for name, ch in self._inner.channels().items():
-            out[name] = Channel(name=ch.name, scope=ch.scope, capacity=self.rate("CAP." + name))
+            out[name] = Channel(
+                name=ch.name, scope=ch.scope, capacity=self.rate("CAP." + name)
+            )
         return out
 
     def __getattr__(self, name):
@@ -65,8 +67,9 @@ class PerturbedMachine:
 class Sm70PerturbedPlugin(Sm70Plugin):
     id = "sm_70_perturbed"
     contract = CONTRACT
-    description = "sm_70 с ОДНОЙ удвоенной ставкой (%s x%.0f). Фальсификатор гейта G6." % (
-        PERTURBED_SYMBOL, FACTOR
+    description = (
+        "sm_70 с ОДНОЙ удвоенной ставкой (%s x%.0f). Фальсификатор гейта G6."
+        % (PERTURBED_SYMBOL, FACTOR)
     )
 
     def __init__(self):
@@ -74,22 +77,32 @@ class Sm70PerturbedPlugin(Sm70Plugin):
         self.machine = PerturbedMachine(self.machine)
 
     def declared_stubs(self):
-        return ("возмущённая копия sm_70: пригодна ТОЛЬКО для гейта, не для замеров",) + tuple(
-            super().declared_stubs()
-        )
+        return (
+            "возмущённая копия sm_70: пригодна ТОЛЬКО для гейта, не для замеров",
+        ) + tuple(super().declared_stubs())
 
     def selftest(self) -> Report:
         r = Report(self.id)
         base = Sm70Plugin()
         b = base.machine.symbols()
         p = self.machine.symbols()
-        diff = [k for k in b if abs(b[k].value - p[k].value) > 1e-12 or (
-            b[k].value != b[k].value) != (p[k].value != p[k].value)]
-        r.check("возмущена РОВНО ОДНА ставка", diff == [PERTURBED_SYMBOL], ", ".join(diff))
-        r.check("возмущение ровно x%.0f" % FACTOR,
-                abs(p[PERTURBED_SYMBOL].value - b[PERTURBED_SYMBOL].value * FACTOR) < 1e-9)
-        r.check("возмущённая ставка ПОМЕЧЕНА как не относящаяся к машине",
-                "ВОЗМУЩЕНО" in p[PERTURBED_SYMBOL].note)
+        diff = [
+            k
+            for k in b
+            if abs(b[k].value - p[k].value) > 1e-12
+            or (b[k].value != b[k].value) != (p[k].value != p[k].value)
+        ]
+        r.check(
+            "возмущена РОВНО ОДНА ставка", diff == [PERTURBED_SYMBOL], ", ".join(diff)
+        )
+        r.check(
+            "возмущение ровно x%.0f" % FACTOR,
+            abs(p[PERTURBED_SYMBOL].value - b[PERTURBED_SYMBOL].value * FACTOR) < 1e-9,
+        )
+        r.check(
+            "возмущённая ставка ПОМЕЧЕНА как не относящаяся к машине",
+            "ВОЗМУЩЕНО" in p[PERTURBED_SYMBOL].note,
+        )
         return r
 
 

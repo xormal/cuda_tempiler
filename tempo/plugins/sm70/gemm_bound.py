@@ -34,29 +34,60 @@ CONF -- множитель конфликтности чтения фрагме�
 # Каждая строка: (значение, статус, чем подтверждено).
 RATES = {
     # тензорная инструкция HMMA.884 = одна квадропара 8x8x4 = 256 умножений-сложений
-    "tensor_qp_per_cycle_sm": (2.0, "MEASURED", "125.3 ТФЛОП/с @1530 / 80 SM / 256 МАС; стенд 1.95 HMMA/такт/SM"),
-    "mio_wavefronts_per_cycle_sm": (1.0, "MEASURED", "probe.cu, 6 точек, <1%; ncu 17/17"),
+    "tensor_qp_per_cycle_sm": (
+        2.0,
+        "MEASURED",
+        "125.3 ТФЛОП/с @1530 / 80 SM / 256 МАС; стенд 1.95 HMMA/такт/SM",
+    ),
+    "mio_wavefronts_per_cycle_sm": (
+        1.0,
+        "MEASURED",
+        "probe.cu, 6 точек, <1%; ncu 17/17",
+    ),
     "regfile_words_per_sm": (65536, "SPEC", "паспорт V100"),
     "reg_isa_limit": (255, "SPEC", "потолок ISA sm_70"),
     "smem_per_sm": (96 * 1024, "SPEC", "паспорт"),
     "warp_slots_per_sm": (64, "SPEC", "паспорт"),
     "sms": (80, "SPEC", "паспорт V100-SXM2"),
-    "reg_granularity_per_warp": (256, "MEASURED", "Q(W)=min(255,8*floor(256/W)), опрос ptxas 4/4"),
+    "reg_granularity_per_warp": (
+        256,
+        "MEASURED",
+        "Q(W)=min(255,8*floor(256/W)), опрос ptxas 4/4",
+    ),
+    # ПОЛОСА ОШИБКИ СОБСТВЕННОЙ ОЦЕНКИ РЕГИСТРОВ -- ЗАМЕРЕНА против ptxas на 12 точках, где
+    # есть И оценка, И сборка (kernels/shipped/gemm_fp16/sm_70/manifest.json, раздел "build").
+    # Оценка занижает до 45.1 % и завышает до 15.3 %. Для ОТСЕЧЕНИЯ важен только верхний край:
+    # завышение -- это и есть выброшенный победитель.
+    "reg_estimate_over_max": (
+        0.153,
+        "MEASURED",
+        "manifest.json.build, 12 точек: -45.1 %..+15.3 % против ptxas; "
+        "худшее завышение +15.3 % (m256x128k32: оценка 272, ptxas 236)",
+    ),
 }
 # Множитель конфликтности чтения фрагментов при ОТГРУЖЕННОМ свиззле (нижние разряды строки).
-CONF_LEGACY = (3.02, "MEASURED", "ncu wf_ld 177.97e6 против расчётных 58.98e6, 128x128x32, 4 варпа")
+CONF_LEGACY = (
+    3.02,
+    "MEASURED",
+    "ncu wf_ld 177.97e6 против расчётных 58.98e6, 128x128x32, 4 варпа",
+)
 # ФОРМА ФРАГМЕНТА (данные плагина -- это карта mma.sync.m8n8k4 на Volta)
 FRAG = {
-    "tile_m": 16, "tile_n": 16, "k_step": 4,   # плотная плитка одного mma на варп
-    "acc_regs_per_tile": 8,                    # накопителей на полосу на плитку 16x16
-    "frag_bytes_per_lane_per_kstep": 8,        # 4 half подряд = один LDS.64; пара шагов = LDS.128
+    "tile_m": 16,
+    "tile_n": 16,
+    "k_step": 4,  # плотная плитка одного mma на варп
+    "acc_regs_per_tile": 8,  # накопителей на полосу на плитку 16x16
+    "frag_bytes_per_lane_per_kstep": 8,  # 4 half подряд = один LDS.64; пара шагов = LDS.128
 }
 
 
 def q_budget(warps_per_sm):
     """Регистровый бюджет на нить при заданной занятости. Замерено: совпадает с ptxas 4/4."""
-    return min(RATES["reg_isa_limit"][0],
-               8 * (RATES["reg_granularity_per_warp"][0] // (32 * warps_per_sm) * 32 // 32 * 1))
+    return min(
+        RATES["reg_isa_limit"][0],
+        8
+        * (RATES["reg_granularity_per_warp"][0] // (32 * warps_per_sm) * 32 // 32 * 1),
+    )
 
 
 def occupancy(regs, smem_bytes, threads_per_cta):
@@ -73,27 +104,52 @@ def occupancy(regs, smem_bytes, threads_per_cta):
 class Hyperform:
     """Точка пространства поиска. params непрозрачны для конвейера; смысл им придаёт скелет."""
 
-    __slots__ = ("BM", "BN", "BK", "WM", "WN", "STAGES", "GSTAGE", "FPREF", "GROUP", "EPI",
-                 "SWZ", "PRED", "MINB")
+    __slots__ = (
+        "BM",
+        "BN",
+        "BK",
+        "WM",
+        "WN",
+        "STAGES",
+        "GSTAGE",
+        "FPREF",
+        "GROUP",
+        "EPI",
+        "SWZ",
+        "PRED",
+        "MINB",
+    )
 
-    def __init__(self, BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB):
+    def __init__(
+        self, BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB
+    ):
         self.BM, self.BN, self.BK = BM, BN, BK
         self.WM, self.WN = WM, WN
         self.STAGES, self.GSTAGE, self.FPREF = STAGES, GSTAGE, FPREF
-        self.GROUP, self.EPI, self.SWZ, self.PRED, self.MINB = GROUP, EPI, SWZ, PRED, MINB
+        self.GROUP, self.EPI, self.SWZ, self.PRED, self.MINB = (
+            GROUP,
+            EPI,
+            SWZ,
+            PRED,
+            MINB,
+        )
 
     # --- производные величины: ВЫВОДЯТСЯ из карты фрагмента, не хранятся ------------------
     @property
-    def MB(self): return self.BM // (FRAG["tile_m"] * self.WM)
+    def MB(self):
+        return self.BM // (FRAG["tile_m"] * self.WM)
 
     @property
-    def NB(self): return self.BN // (FRAG["tile_n"] * self.WN)
+    def NB(self):
+        return self.BN // (FRAG["tile_n"] * self.WN)
 
     @property
-    def NW(self): return self.WM * self.WN
+    def NW(self):
+        return self.WM * self.WN
 
     @property
-    def threads(self): return self.NW * 32
+    def threads(self):
+        return self.NW * 32
 
     @property
     def smem(self):
@@ -102,16 +158,44 @@ class Hyperform:
         return max(main, epi)
 
     @property
-    def kper_a(self): return self.BM * self.BK // 8 // self.threads
+    def kper_a(self):
+        return self.BM * self.BK // 8 // self.threads
 
     @property
-    def kper_b(self): return self.BN * self.BK // 8 // self.threads
+    def kper_b(self):
+        return self.BN * self.BK // 8 // self.threads
 
     def regs_estimate(self):
+        """ТОЧКА оценки: счёт по СТРУКТУРЕ ИСХОДНИКА скелета (накопители + фрагменты + подача).
+
+        Это оценка ДАВЛЕНИЯ, а не предсказание РАСПРЕДЕЛЕНИЯ. Распределяет ptxas, и он не
+        обязан совпасть: замерено, что при оценке 280 он выдаёт 254 БЕЗ ЕДИНОГО РАЗЛИВА
+        (кадр 0) -- то есть перевыражает значения, лишь бы влезть в потолок ISA. Поэтому
+        «стена по регистрам», объявленная ПО ЭТОЙ ОЦЕНКЕ, -- не стена, а промах оценки.
+        """
         acc = self.MB * self.NB * FRAG["acc_regs_per_tile"]
         frag = (self.FPREF + 1) * (self.MB + self.NB) * 4
         stage = self.GSTAGE * (self.kper_a + self.kper_b) * 4
         return acc + frag + stage + 24
+
+    def regs_for_verdict(self):
+        """ОПТИМИСТИЧНЫЙ КРАЙ полосы -- число, которым РАЗРЕШЕНО ВЫБРАСЫВАТЬ вариант.
+
+        ПРАВИЛО, ОПЛАЧЕННОЕ ПЯТНАДЦАТЬЮ ПОТЕРЯННЫМИ ПОБЕДИТЕЛЯМИ:
+            ресурсный вердикт -- это ВЫБРАСЫВАНИЕ БЕЗ СБОРКИ. Выбрасывать по ОЦЕНКЕ можно
+            только тем краем её полосы, который вариант СОХРАНЯЕТ; иначе ошибка оценки
+            становится ТИХОЙ ПОТЕРЕЙ ПОБЕДИТЕЛЯ, а не громким промахом.
+
+        Замерено правилом приёмки (tests/test_prune_acceptance.py): по ТОЧКЕ оценки
+        отсекатель выбрасывал 15 из 35 замеренных победителей -- включая все три плитки,
+        которые собрались (кадр 0) и обогнали сильную библиотеку. По этому краю -- ни одного.
+
+        Полоса берётся ОДНОСТОРОННЕЙ намеренно: занижение оценки вариант не теряет, оно
+        лишь оставляет лишнее, а лишнее ловится сборкой. Цена односторонности -- больше
+        сборок, и это верный размен.
+        """
+        over = RATES["reg_estimate_over_max"][0]
+        return int(self.regs_estimate() / (1.0 + over))
 
     # --- ЗАКОН: во сколько раз канал разделяемой длиннее тензорного ------------------------
     def conflict_factor(self):
@@ -136,7 +220,9 @@ class Hyperform:
             return "BK/8 не степень двойки"
         if self.threads > 1024:
             return "нитей > 1024"
-        if (self.BM * self.BK // 8) % self.threads or (self.BN * self.BK // 8) % self.threads:
+        if (self.BM * self.BK // 8) % self.threads or (
+            self.BN * self.BK // 8
+        ) % self.threads:
             return "плитка не делится на нити"
         if self.kper_a < 1 or self.kper_b < 1:
             return "нитей больше, чем 16-байтовых порций"
@@ -144,21 +230,49 @@ class Hyperform:
             return "предвыборка глубже плитки"
         if self.smem > RATES["smem_per_sm"][0]:
             return "СТЕНА-СМЕМ"
-        if self.regs_estimate() > 300:
-            return "НЕТ-БЮДЖЕТА (оценка регистров)"
+        if self.regs_for_verdict() > 300:
+            return "НЕТ-БЮДЖЕТА (оценка регистров, оптимистичный край полосы)"
         return None
 
     def tag(self):
-        return "t%dx%dk%d_w%dx%d_s%dg%df%d_G%d_E%d_Z%d%s" % (
-            self.BM, self.BN, self.BK, self.WM, self.WN,
-            self.STAGES, self.GSTAGE, self.FPREF, self.GROUP, self.EPI, self.SWZ,
-            "P" if self.PRED else "")
+        """ИМЯ ГИПЕРФОРМЫ.  Обязано быть ИНЪЕКТИВНЫМ: по контракту это ещё и `key`, то есть
+        имя ядра и каталога поставки.  MINB был пропущен, и 880 гиперформ давали 440 ключей --
+        две РАЗНЫЕ инстанциации (разные `__launch_bounds__`, разный вердикт ptxas по
+        регистрам) писались в один каталог и различались только тем, кто последний.
+        """
+        return "t%dx%dk%d_w%dx%d_s%dg%df%d_G%d_E%d_Z%d%s_B%d" % (
+            self.BM,
+            self.BN,
+            self.BK,
+            self.WM,
+            self.WN,
+            self.STAGES,
+            self.GSTAGE,
+            self.FPREF,
+            self.GROUP,
+            self.EPI,
+            self.SWZ,
+            "P" if self.PRED else "",
+            self.MINB,
+        )
 
     def cfg_line(self):
         return 'CFG("%s", %d,%d,%d, %d,%d, %d,%d,%d, %d,%d,%d, %s, %d),' % (
-            self.tag(), self.BM, self.BN, self.BK, self.WM, self.WN,
-            self.STAGES, self.GSTAGE, self.FPREF, self.GROUP, self.EPI, self.SWZ,
-            "true" if self.PRED else "false", self.MINB)
+            self.tag(),
+            self.BM,
+            self.BN,
+            self.BK,
+            self.WM,
+            self.WN,
+            self.STAGES,
+            self.GSTAGE,
+            self.FPREF,
+            self.GROUP,
+            self.EPI,
+            self.SWZ,
+            "true" if self.PRED else "false",
+            self.MINB,
+        )
 
 
 def wave_efficiency(h, M, N):
@@ -166,7 +280,7 @@ def wave_efficiency(h, M, N):
     nm = -(-M // h.BM)
     nn = N // h.BN
     ctas = nm * nn
-    warps, per_sm = occupancy(min(255, h.regs_estimate()), h.smem, h.threads)
+    warps, per_sm = occupancy(min(255, h.regs_for_verdict()), h.smem, h.threads)
     if per_sm == 0:
         return 0.0
     wave = RATES["sms"][0] * per_sm

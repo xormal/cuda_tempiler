@@ -53,9 +53,13 @@ def prune(plugin, op, hyperforms, keep_silent: bool = True, bound_slack: float =
     for h in hyperforms:
         try:
             regs, max_live, smem = plugin.skeletons.resources_of(op, h)
-            v = plugin.resources.verdict(regs, max_live, smem, plugin.skeletons.launch_of(op, h).threads)
+            v = plugin.resources.verdict(
+                regs, max_live, smem, plugin.skeletons.launch_of(op, h).threads
+            )
         except Exception as e:
-            out.append(Candidate(h, None, None, False, "ресурсный вердикт недоступен: %s" % e))
+            out.append(
+                Candidate(h, None, None, False, "ресурсный вердикт недоступен: %s" % e)
+            )
             continue
         if not v.ok:
             out.append(Candidate(h, v, None, False, "%s: %s" % (v.code, v.explain)))
@@ -64,8 +68,16 @@ def prune(plugin, op, hyperforms, keep_silent: bool = True, bound_slack: float =
             atoms = plugin.skeletons.estimate_atoms(op, h)
             b = bound(atoms, channels, warps_per_sm=v.occ.warps_per_sm)
         except Exception as e:
-            out.append(Candidate(h, v, None, keep_silent,
-                                 "граница недоступна (%s) -- вариант ОСТАВЛЕН, отсекать по незнанию нельзя" % e))
+            out.append(
+                Candidate(
+                    h,
+                    v,
+                    None,
+                    keep_silent,
+                    "граница недоступна (%s) -- вариант ОСТАВЛЕН, отсекать по незнанию нельзя"
+                    % e,
+                )
+            )
             continue
         rows.append((h, v, b))
         if not b.silent and (best is None or b.T < best):
@@ -73,15 +85,31 @@ def prune(plugin, op, hyperforms, keep_silent: bool = True, bound_slack: float =
 
     for h, v, b in rows:
         if b.silent:
-            out.append(Candidate(h, v, b, keep_silent, "МОДЕЛЬ МОЛЧИТ: " + b.silent_reason))
+            out.append(
+                Candidate(h, v, b, keep_silent, "МОДЕЛЬ МОЛЧИТ: " + b.silent_reason)
+            )
             continue
         if best is not None and b.T > best * bound_slack:
-            out.append(Candidate(h, v, b, False,
-                                 "граница %.2f хуже лучшей (%.2f) более чем в %.1f раза"
-                                 % (b.T, best, bound_slack)))
+            out.append(
+                Candidate(
+                    h,
+                    v,
+                    b,
+                    False,
+                    "граница %.2f хуже лучшей (%.2f) более чем в %.1f раза"
+                    % (b.T, best, bound_slack),
+                )
+            )
         else:
-            out.append(Candidate(h, v, b, True,
-                                 "%s; T >= %.2f, связывает %s" % (v.code, b.T, b.binding)))
+            out.append(
+                Candidate(
+                    h,
+                    v,
+                    b,
+                    True,
+                    "%s; T >= %.2f, связывает %s" % (v.code, b.T, b.binding),
+                )
+            )
     return out
 
 
@@ -92,6 +120,7 @@ def kept(cands):
 def summary(cands) -> str:
     k = sum(1 for c in cands if c.kept)
     silent = sum(1 for c in cands if c.bound is not None and c.bound.silent)
-    return "гиперформ %d, оставлено %d, отсечено %d (из них по молчащей модели -- 0, молчащих %d)" % (
-        len(cands), k, len(cands) - k, silent
+    return (
+        "гиперформ %d, оставлено %d, отсечено %d (из них по молчащей модели -- 0, молчащих %d)"
+        % (len(cands), k, len(cands) - k, silent)
     )

@@ -31,7 +31,10 @@ def data(name: str) -> dict:
 def _card(d: dict) -> CardState:
     c = d["card"]
     return CardState(
-        index=c["index"], clock_mhz=c["clock_mhz"], foreign_procs=c["foreign_procs"], date=c["date"]
+        index=c["index"],
+        clock_mhz=c["clock_mhz"],
+        foreign_procs=c["foreign_procs"],
+        date=c["date"],
     )
 
 
@@ -52,7 +55,12 @@ def _rate(symbol, value, units, status, note, src: dict, counter=None) -> Rate:
     """Происхождение прикладывается ТОЛЬКО к MEASURED: у SPEC карты нет и быть не должно."""
     prov = _prov(src, counter) if status == "MEASURED" else None
     return Rate(
-        symbol=symbol, value=float(value), units=units, status=status, prov=prov, note=note
+        symbol=symbol,
+        value=float(value),
+        units=units,
+        status=status,
+        prov=prov,
+        note=note,
     )
 
 
@@ -71,11 +79,21 @@ def _build_symbols() -> Mapping[str, Rate]:
     m = data("machine")
     for name, g in m["geometry"].items():
         out["GEOM." + name.upper()] = _rate(
-            "GEOM." + name.upper(), g["value"], g["units"], g["status"], g.get("note", ""), m
+            "GEOM." + name.upper(),
+            g["value"],
+            g["units"],
+            g["status"],
+            g.get("note", ""),
+            m,
         )
     for name, p in m["peak"].items():
         out["PEAK." + name.upper()] = _rate(
-            "PEAK." + name.upper(), p["value"], p["units"], p["status"], p.get("note", ""), m
+            "PEAK." + name.upper(),
+            p["value"],
+            p["units"],
+            p["status"],
+            p.get("note", ""),
+            m,
         )
     r = data("regs")
     out["REG.OVERHEAD"] = _rate(
@@ -128,7 +146,12 @@ def _build_symbols() -> Mapping[str, Rate]:
     )
     mio = data("mio")
     out["MIO.WAVEFRONT_BYTES"] = _rate(
-        "MIO.WAVEFRONT_BYTES", 128.0, "байт", "MEASURED", mio["law"]["throughput"], mio,
+        "MIO.WAVEFRONT_BYTES",
+        128.0,
+        "байт",
+        "MEASURED",
+        mio["law"]["throughput"],
+        mio,
         counter=mio["taken_with"]["counter"],
     )
     out["MIO.CONFLICT"] = Rate(
@@ -141,20 +164,38 @@ def _build_symbols() -> Mapping[str, Rate]:
     )
     w = data("wave")
     out["WAVE.QUANTUM"] = _rate(
-        "WAVE.QUANTUM", w["wave"]["quantum_sms"], "SM", w["wave"]["status"], w["wave"]["note"], w
+        "WAVE.QUANTUM",
+        w["wave"]["quantum_sms"],
+        "SM",
+        w["wave"]["status"],
+        w["wave"]["note"],
+        w,
     )
     out["ISSUE.SLOT_PRICE_IDLE"] = _rate(
-        "ISSUE.SLOT_PRICE_IDLE", 0.22, "такт/слот", "MEASURED",
-        "НИЖНЯЯ оценка: холостая команда у считающих. " + w["issue_slot_price"]["correction"], w,
+        "ISSUE.SLOT_PRICE_IDLE",
+        0.22,
+        "такт/слот",
+        "MEASURED",
+        "НИЖНЯЯ оценка: холостая команда у считающих. "
+        + w["issue_slot_price"]["correction"],
+        w,
     )
     out["ISSUE.SLOT_PRICE_INCHAIN"] = _rate(
-        "ISSUE.SLOT_PRICE_INCHAIN", 0.49, "такт/слот", "MEASURED",
-        "цена той же команды В ЦЕПИ подачи операнда", w,
+        "ISSUE.SLOT_PRICE_INCHAIN",
+        0.49,
+        "такт/слот",
+        "MEASURED",
+        "цена той же команды В ЦЕПИ подачи операнда",
+        w,
     )
     t = data("tensor")
     out["TENSOR.COST"] = _rate(
-        "TENSOR.COST", t["op"]["cost_cycles_per_sched"], "такт/команду/планировщик",
-        t["op"]["status"], t["op"]["gotcha"], t,
+        "TENSOR.COST",
+        t["op"]["cost_cycles_per_sched"],
+        "такт/команду/планировщик",
+        t["op"]["status"],
+        t["op"]["gotcha"],
+        t,
     )
     return out
 

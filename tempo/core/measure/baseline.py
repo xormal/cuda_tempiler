@@ -58,7 +58,10 @@ class Comparison:
         if self.ci and len(self.ci) == 2:
             ci = " [%.3f..%.3f]" % (self.ci[0], self.ci[1])
         return "против %-28s x%.3f%s  раундов %d%s" % (
-            self.baseline.label(), self.ratio, ci, self.rounds,
+            self.baseline.label(),
+            self.ratio,
+            ci,
+            self.rounds,
             ("  -- " + self.note) if self.note else "",
         )
 
@@ -85,7 +88,7 @@ def wall_share_required(share: Optional[float]) -> str:
     -- 16.3 % стены.  Счётчик стоил одного прогона, а встраивание -- дня.
     """
     if share is None:
-        return (
-            "ДОЛЯ В СТЕНЕ НЕ ИЗМЕРЕНА -- ускорение ядра НЕЛЬЗЯ переводить в ускорение задачи"
-        )
-    return "доля работы этого ядра в стене: %.1f %% (потолок сквозного эффекта)" % (100.0 * share)
+        return "ДОЛЯ В СТЕНЕ НЕ ИЗМЕРЕНА -- ускорение ядра НЕЛЬЗЯ переводить в ускорение задачи"
+    return "доля работы этого ядра в стене: %.1f %% (потолок сквозного эффекта)" % (
+        100.0 * share
+    )

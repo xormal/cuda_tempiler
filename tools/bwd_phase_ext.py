@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 
+
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
     import importlib.util as _u, os as _o
@@ -62,8 +63,6 @@ def build(mask, seal=1, extra=()):
     os.environ.setdefault("CC", "/usr/bin/gcc")
     os.environ.setdefault("CXX", "/usr/bin/g++")
     from torch.utils.cpp_extension import load
-
-
 
     name = "fa2_bwd_phase_m%d" % mask
     bdir = os.path.join(BUILD, name)

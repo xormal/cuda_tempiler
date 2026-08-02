@@ -93,18 +93,38 @@ def variants(op: OpSpec) -> Iterator[Hyperform]:
                                                 for PR in DOMAINS["PRED"]:
                                                     for MB in DOMAINS["MINB"]:
                                                         h = GemmHyperform(
-                                                            BM, BN, BK, WM, WN, ST, GS, FP,
-                                                            GR, EP, SW, PR, MB
+                                                            BM,
+                                                            BN,
+                                                            BK,
+                                                            WM,
+                                                            WN,
+                                                            ST,
+                                                            GS,
+                                                            FP,
+                                                            GR,
+                                                            EP,
+                                                            SW,
+                                                            PR,
+                                                            MB,
                                                         )
                                                         if not _legal(h):
                                                             continue
                                                         yield Hyperform(
                                                             plugin="sm_70",
                                                             params=dict(
-                                                                BM=BM, BN=BN, BK=BK, WM=WM,
-                                                                WN=WN, STAGES=ST, GSTAGE=GS,
-                                                                FPREF=FP, GROUP=GR, EPI=EP,
-                                                                SWZ=SW, PRED=PR, MINB=MB,
+                                                                BM=BM,
+                                                                BN=BN,
+                                                                BK=BK,
+                                                                WM=WM,
+                                                                WN=WN,
+                                                                STAGES=ST,
+                                                                GSTAGE=GS,
+                                                                FPREF=FP,
+                                                                GROUP=GR,
+                                                                EPI=EP,
+                                                                SWZ=SW,
+                                                                PRED=PR,
+                                                                MINB=MB,
                                                             ),
                                                             key=h.tag(),
                                                         )
@@ -113,8 +133,19 @@ def variants(op: OpSpec) -> Iterator[Hyperform]:
 def to_gemm(h: Hyperform) -> GemmHyperform:
     p = h.params
     return GemmHyperform(
-        p["BM"], p["BN"], p["BK"], p["WM"], p["WN"], p["STAGES"], p["GSTAGE"], p["FPREF"],
-        p["GROUP"], p["EPI"], p["SWZ"], p["PRED"], p["MINB"],
+        p["BM"],
+        p["BN"],
+        p["BK"],
+        p["WM"],
+        p["WN"],
+        p["STAGES"],
+        p["GSTAGE"],
+        p["FPREF"],
+        p["GROUP"],
+        p["EPI"],
+        p["SWZ"],
+        p["PRED"],
+        p["MINB"],
     )
 
 

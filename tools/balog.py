@@ -20,12 +20,15 @@
     python3 tools/balog.py show --axis bits     # разрез по одной оси
     python3 tools/balog.py check                # ГЕЙТ: воспроизводит ли журнал известные ответы
 """
+
 import argparse
 import json
 import os
 import sys
 
-LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "balance_log.jsonl")
+LOG = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "balance_log.jsonl"
+)
 
 
 def _rows():
@@ -40,7 +43,7 @@ def _rows():
             out.append(json.loads(l))
         except json.JSONDecodeError as e:
             # НЕ глотать: битая строка означает, что часть проб потеряна, а журнал выглядит целым.
-            print(f"ОТКАЗ: строка {i+1} журнала не разбирается: {e}", file=sys.stderr)
+            print(f"ОТКАЗ: строка {i + 1} журнала не разбирается: {e}", file=sys.stderr)
             sys.exit(2)
     return out
 
@@ -64,13 +67,21 @@ def _axes(s):
 
 def cmd_add(a):
     if a.measured_us is not None and a.predicted_us is None:
-        print("ОТКАЗ: --predicted-us обязателен. Журнал без предсказания не проверяет модель,\n"
-              "       а только выбирает победителя. Если модели ещё нет -- пиши --predicted-us -1.",
-              file=sys.stderr)
+        print(
+            "ОТКАЗ: --predicted-us обязателен. Журнал без предсказания не проверяет модель,\n"
+            "       а только выбирает победителя. Если модели ещё нет -- пиши --predicted-us -1.",
+            file=sys.stderr,
+        )
         sys.exit(2)
-    rec = dict(axes=_axes(a.axes), shape=a.shape,
-               predicted_us=a.predicted_us, measured_us=a.measured_us,
-               correct=a.correct, note=a.note or "", source=a.source or "")
+    rec = dict(
+        axes=_axes(a.axes),
+        shape=a.shape,
+        predicted_us=a.predicted_us,
+        measured_us=a.measured_us,
+        correct=a.correct,
+        note=a.note or "",
+        source=a.source or "",
+    )
     os.makedirs(os.path.dirname(LOG), exist_ok=True)
     with open(LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -85,20 +96,28 @@ def cmd_show(a):
     if not rows:
         print("журнал пуст")
         return
-    print(f"{'форма':<17}{'оси':<49}{'предск,мкс':>11}{'замер,мкс':>10}{'ошибка':>9}  примечание")
+    print(
+        f"{'форма':<17}{'оси':<49}{'предск,мкс':>11}{'замер,мкс':>10}{'ошибка':>9}  примечание"
+    )
     for r in rows:
         ax = ",".join(f"{k}={v}" for k, v in r["axes"].items())
         p, m = r.get("predicted_us"), r.get("measured_us")
-        err = f"{100*(p-m)/m:+.1f}%" if (p and m and p > 0) else "--"
-        print(f"{r['shape'][:16]:<17}{ax[:48]:<49}{(p if p else 0):>11.1f}{(m if m else 0):>10.1f}{err:>9}  {r.get('note','')}")
+        err = f"{100 * (p - m) / m:+.1f}%" if (p and m and p > 0) else "--"
+        print(
+            f"{r['shape'][:16]:<17}{ax[:48]:<49}{(p if p else 0):>11.1f}{(m if m else 0):>10.1f}{err:>9}  {r.get('note', '')}"
+        )
     ok = [r for r in rows if r.get("predicted_us", -1) > 0 and r.get("measured_us")]
     if ok:
         e = [abs(r["predicted_us"] - r["measured_us"]) / r["measured_us"] for r in ok]
         e.sort()
-        print(f"\nточек с предсказанием: {len(ok)} из {len(rows)}; "
-              f"медиана |ошибки| {100*e[len(e)//2]:.1f} %, худшая {100*e[-1]:.1f} %")
+        print(
+            f"\nточек с предсказанием: {len(ok)} из {len(rows)}; "
+            f"медиана |ошибки| {100 * e[len(e) // 2]:.1f} %, худшая {100 * e[-1]:.1f} %"
+        )
     else:
-        print(f"\nточек с предсказанием: 0 из {len(rows)} -- модель по этому журналу НЕ проверяема")
+        print(
+            f"\nточек с предсказанием: 0 из {len(rows)} -- модель по этому журналу НЕ проверяема"
+        )
 
 
 def cmd_check(a):
@@ -110,36 +129,58 @@ def cmd_check(a):
         отвергать, а не «не находить».
     """
     rows = _rows()
+
     def find(**kw):
         return [r for r in rows if all(r["axes"].get(k) == v for k, v in kw.items())]
+
     bad = []
     roles = find(n_carry=4, n_compute=8)
     if not roles:
-        bad.append("нет ни одной пробы ролевого 4+8 -- известный ответ не воспроизведён")
-    coll = [r for r in rows if r["axes"].get("n_compute") == 16 or r["axes"].get("collective") == 1]
+        bad.append(
+            "нет ни одной пробы ролевого 4+8 -- известный ответ не воспроизведён"
+        )
+    coll = [
+        r
+        for r in rows
+        if r["axes"].get("n_compute") == 16 or r["axes"].get("collective") == 1
+    ]
     if not coll:
-        bad.append("нет пробы 16-варпового коллектива -- известный ОТРИЦАТЕЛЬНЫЙ ответ не воспроизведён")
+        bad.append(
+            "нет пробы 16-варпового коллектива -- известный ОТРИЦАТЕЛЬНЫЙ ответ не воспроизведён"
+        )
     print("ГЕЙТ ГОДНОСТИ ЖУРНАЛА (T14):")
     for b in bad:
         print("  ОТКАЗ:", b)
     if not bad:
-        print("  оба известных ответа присутствуют -- журнал годен как проверочный набор")
+        print(
+            "  оба известных ответа присутствуют -- журнал годен как проверочный набор"
+        )
     return 1 if bad else 0
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("add");  p.set_defaults(f=cmd_add)
-    p.add_argument("--axes", required=True, help="n_carry=4,n_compute=8,BM=64,... через запятую")
+    p = sub.add_parser("add")
+    p.set_defaults(f=cmd_add)
+    p.add_argument(
+        "--axes", required=True, help="n_carry=4,n_compute=8,BM=64,... через запятую"
+    )
     p.add_argument("--shape", required=True)
     p.add_argument("--predicted-us", type=float, default=None)
     p.add_argument("--measured-us", type=float, default=None)
-    p.add_argument("--correct", default="", help="как сверена корректность (гейт РАНЬШЕ секундомера)")
+    p.add_argument(
+        "--correct",
+        default="",
+        help="как сверена корректность (гейт РАНЬШЕ секундомера)",
+    )
     p.add_argument("--note", default="")
     p.add_argument("--source", default="", help="файл/скрипт прогона")
-    p = sub.add_parser("show"); p.set_defaults(f=cmd_show); p.add_argument("--axis", default="")
-    p = sub.add_parser("check"); p.set_defaults(f=cmd_check)
+    p = sub.add_parser("show")
+    p.set_defaults(f=cmd_show)
+    p.add_argument("--axis", default="")
+    p = sub.add_parser("check")
+    p.set_defaults(f=cmd_check)
     a = ap.parse_args()
     sys.exit(a.f(a) or 0)
 

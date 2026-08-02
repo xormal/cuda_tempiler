@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Entry:
-    predicate: dict          # что обязано выполниться (dtype, раскладки, делимость, границы)
+    predicate: dict  # что обязано выполниться (dtype, раскладки, делимость, границы)
     kernel_id: str
     params: dict = field(default_factory=dict)
     note: str = ""
@@ -50,12 +50,18 @@ class Registry:
                 "arch": self.arch,
                 "fallback": self.fallback,
                 "entries": [
-                    {"predicate": e.predicate, "kernel_id": e.kernel_id,
-                     "params": e.params, "note": e.note}
+                    {
+                        "predicate": e.predicate,
+                        "kernel_id": e.kernel_id,
+                        "params": e.params,
+                        "note": e.note,
+                    }
                     for e in self.entries
                 ],
             },
-            ensure_ascii=False, indent=2, sort_keys=True,
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
         )
 
 

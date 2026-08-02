@@ -31,11 +31,25 @@ template <int BM, int BN, int BK, int WM, int WN, int STAGES, int GSTAGE, int FP
           int EPI, int SWZ, bool PRED, int MINB>
 inline cudaError_t launch_one(const GemmParams& p, cudaStream_t s) {
   constexpr int THREADS = WM * WN * 32;
+  // РАЗДЕЛЯЕМАЯ ОБЪЯВЛЕНА ДИНАМИЧЕСКОЙ (`extern __shared__` в kernel.cuh), значит её РАЗМЕР
+  // обязан приехать третьим аргументом запуска. Прежняя редакция пускала ядро с НУЛЁМ, и
+  // поставка умирала на первой же форме: `an illegal memory access` и мёртвый контекст.
+  // ЧЕМ ЭТО БЫЛО НЕ ВИДНО: замеры снимались испытательной обвязкой (harness.cu), а она
+  // считает размер сама. Гейт поставки при этом ЗЕЛЕНЕЛ, потому что ядро не запускал.
+  // Правило, оплаченное этим: гейт, который не ЗАПУСКАЕТ отгружаемое, проверяет не поставку.
+  constexpr int SMEM = SmemBytes<BM, BN, BK, WM, WN, STAGES, EPI>::value;
+  auto kern = k_gemm<BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB>;
+  // Свыше 48 КБ разделяемая на блок ТРЕБУЕТ явного согласия, иначе запуск отвергается.
+  // Гиперформам лестницы нужно 36 864..49 152 Б, то есть порог переходят реально.
+  if (SMEM > 48 * 1024) {
+    const cudaError_t a =
+        cudaFuncSetAttribute(kern, cudaFuncAttributeMaxDynamicSharedMemorySize, SMEM);
+    if (a != cudaSuccess) return a;
+  }
   const int nm = (p.M + BM - 1) / BM;
   const int nn = p.N / BN;
   const dim3 grid(nm * nn), blk(THREADS);
-  k_gemm<BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB>
-      <<<grid, blk, 0, s>>>(p.A, p.B, p.C, p.M, p.N, p.K);
+  kern<<<grid, blk, SMEM, s>>>(p.A, p.B, p.C, p.M, p.N, p.K);
   return cudaGetLastError();
 }
 
@@ -54,6 +68,10 @@ inline bool applicable(const GemmParams& p) {
 
 // Диспетчер по форме. Тело -- сгенерированная таблица; если ни одна строка не подошла,
 // возвращается cudaErrorInvalidConfiguration, и это ЗАКОННЫЙ ответ «уходи в откат».
+//
+// ОПРЕДЕЛЕНИЕ ЖИВЁТ В `launch.cu` -- ЕДИНСТВЕННОМ .cu ПОСТАВКИ. Прежняя редакция объявляла
+// эту функцию и НЕ определяла нигде: `dispatch.inc` не был включён ни в один единицу
+// трансляции, и хост-дерево получало ошибку КОМПОНОВКИ, а не работающее ядро.
 cudaError_t launch(const GemmParams& p, cudaStream_t s);
 
 }  // namespace gen

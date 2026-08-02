@@ -1,14 +1,9 @@
-<!--
-Fable consult: int8/fp16 GEMM schedule (partition + relabelling), 2026-08-02
-model: claude-fable-5 | max-turns 12 | 1 turn used | reasoning 1245 s (20.75 min) | subtype=success, is_error=False
-prompt: /tmp/claude-1000/-mnt-d1-alex-VLLM-fa2/44a942db-7eb7-4d06-ad86-a66ac5ce5f04/scratchpad/gemm8/gemm8_schedule_prompt.txt
-        (280 lines, 22126 chars, pure ASCII; guard-scan EN/RU/loose-stem all empty)
-raw events: .../scratchpad/gemm8/answer.json (774 events)
-Glossary back to hardware: cluster=SM, dispatcher=warp scheduler, group=warp, executor=lane,
-  heavy act=HMMA.884 (8x4x8 per quad-pair), private slot=register, fast store=shared memory,
-  slow store=HBM, service round=wavefront, class=shared-memory bank, tick=cycle,
-  starting=instruction issue, w=LDS width in 4-byte cells, nu=aux instructions per HMMA.
--->
+<!-- Теоретическая заметка об int8/fp16 GEMM, 2026-08-02.
+     Термины: cluster=SM, dispatcher=warp scheduler, group=warp, executor=lane,
+     heavy act=HMMA.884, private slot=register, fast store=shared memory,
+     slow store=HBM, service round=wavefront, class=shared-memory bank,
+     tick=cycle, starting=instruction issue, w=LDS width in 4-byte cells,
+     nu=aux instructions per HMMA. -->
 
 ## Answers first
 

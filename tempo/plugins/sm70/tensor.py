@@ -72,7 +72,11 @@ _FRAG = FragmentMap(a=_frag_a, b=_frag_b, c=_frag_c)
 def bijection_ok() -> bool:
     """Покрытие плитки 16x16 картой C -- БИЕКЦИЯ.  Это и есть гейт корректности карты."""
     cells = {(_acc_row(l, r), _acc_col(l, r)) for l in range(32) for r in range(8)}
-    return len(cells) == 256 and max(c[0] for c in cells) == 15 and max(c[1] for c in cells) == 15
+    return (
+        len(cells) == 256
+        and max(c[0] for c in cells) == 15
+        and max(c[1] for c in cells) == 15
+    )
 
 
 def a_value_fanout() -> int:
@@ -91,7 +95,8 @@ def _warp_cost() -> Rate:
         units="такт/варповую-mma/планировщик",
         status=w["status"],
         prov=q.prov,
-        note="%d квадропары x %.2f такта. %s" % (w["sass_per_op"], q.value, w["derivation"]),
+        note="%d квадропары x %.2f такта. %s"
+        % (w["sass_per_op"], q.value, w["derivation"]),
     )
 
 

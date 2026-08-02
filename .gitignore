@@ -29,3 +29,6 @@ data/ncu/*.ncu-rep
 theory/q1_answer.json
 theory/q1_err.log
 vendor/cookbook.py
+
+# Сгенерированные ядра: они порождаются конвейером и не являются исходником продукта.
+kernels/generated/

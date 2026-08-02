@@ -20,7 +20,9 @@ import os
 BANKS = 32
 BANK_BYTES = 4
 
-_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
+)
 
 
 def _bankform():
@@ -52,7 +54,9 @@ def phase_rows(width_bytes: int = 16):
     """
     lanes_per_phase = max(1, 32 * 4 // max(4, width_bytes))
     quad = lanes_per_phase // 4
-    return [(l & 3) | ((l >> 2) << 3) for l in range(lanes_per_phase)][: 4 * max(1, quad)]
+    return [(l & 3) | ((l >> 2) << 3) for l in range(lanes_per_phase)][
+        : 4 * max(1, quad)
+    ]
 
 
 def swizzle_phase_injective(row: int, chunks: int) -> int:

@@ -27,7 +27,9 @@ import importlib.util
 import os
 from dataclasses import dataclass, field
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
+)
 TOOL = os.path.join(ROOT, "tools", "phaseprof.py")
 
 
@@ -41,8 +43,8 @@ def tool():
 @dataclass
 class Decomposition:
     base_time: float
-    phases: dict = field(default_factory=dict)   # имя -> время БЕЗ этой фазы
-    all_removed: float = float("nan")            # время варианта «снять ВСЁ», если он есть
+    phases: dict = field(default_factory=dict)  # имя -> время БЕЗ этой фазы
+    all_removed: float = float("nan")  # время варианта «снять ВСЁ», если он есть
 
     def share(self, name: str) -> float:
         return 1.0 - self.phases[name] / self.base_time
@@ -66,12 +68,16 @@ class Decomposition:
         out = ["РАЗЛОЖЕНИЕ ПО ФАЗАМ (доля = 1 - t(снята)/t(база))"]
         for k, v in sorted(self.shares().items(), key=lambda kv: -kv[1]):
             out.append("  %-24s %6.1f %%" % (k, 100.0 * v))
-        out.append("  %-24s %6.1f %%" % ("сумма названных", 100.0 * sum(self.shares().values())))
+        out.append(
+            "  %-24s %6.1f %%"
+            % ("сумма названных", 100.0 * sum(self.shares().values()))
+        )
         ov, un = self.split_residual()
         if ov is None:
             out.append(
                 "  НЕВЯЗКА %.1f %% НЕ РАЗДЕЛЕНА: варианта «снять ВСЁ» нет, поэтому перекрытие "
-                "и неназванное не различены. Доли -- НИЖНИЕ оценки." % (100.0 * self.residual())
+                "и неназванное не различены. Доли -- НИЖНИЕ оценки."
+                % (100.0 * self.residual())
             )
         else:
             out.append("  %-24s %6.1f %%" % ("перекрытие", 100.0 * ov))

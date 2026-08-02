@@ -16,7 +16,9 @@ from __future__ import annotations
 import importlib.util
 import os
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
+)
 TOOL = os.path.join(ROOT, "tools", "calib.py")
 
 
@@ -42,7 +44,11 @@ def apply(symbols, records):
             if old.status == "MEASURED" and rec.get("kind") != "rate":
                 continue
             out[sym] = type(old)(
-                symbol=old.symbol, value=float(b["value"]), units=old.units,
-                status="MEASURED", prov=old.prov, note=b.get("note", old.note),
+                symbol=old.symbol,
+                value=float(b["value"]),
+                units=old.units,
+                status="MEASURED",
+                prov=old.prov,
+                note=b.get("note", old.note),
             )
     return out

@@ -1,8 +1,8 @@
 # ФАЛЬСИФИКАТОР ДАННЫХ: константа против случайных операндов, ядро тождественно (bench/data_power.cu)
-/tmp/claude-1000/-mnt-d1-alex-VLLM-fa2/44a942db-7eb7-4d06-ad86-a66ac5ce5f04/scratchpad/build/data_power: error while loading shared libraries: libcublas.so.12: cannot open shared object file: No such file or directory
+data_power: error while loading shared libraries: libcublas.so.12: cannot open shared object file: No such file or directory
 
 # ТИП ВЫХОДА cuBLAS (bench/epilog_type.cu), данные КОНСТАНТНЫЕ
-/tmp/claude-1000/-mnt-d1-alex-VLLM-fa2/44a942db-7eb7-4d06-ad86-a66ac5ce5f04/scratchpad/build/epilog_type: error while loading shared libraries: libcublas.so.12: cannot open shared object file: No such file or directory
+epilog_type: error while loading shared libraries: libcublas.so.12: cannot open shared object file: No such file or directory
 
 # ОРИГИНАЛЬНЫЙ СТЕНД боевого дерева tools/volta_gemm_bench.cu (данные memset-константа)
 

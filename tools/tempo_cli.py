@@ -49,6 +49,7 @@ import shutil
 import subprocess
 import sys
 
+
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
     import importlib.util as _u, os as _o
@@ -81,9 +82,7 @@ PY_SYS = shutil.which("python3") or sys.executable
 PY_VLLM = _ENV.python_vllm() or "python3"
 REPO = "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade"
 CUDA_HOME = _ENV.cuda_home() or ""
-NCU_GOOD = (
-    _ENV.ncu() or "ncu"
-)
+NCU_GOOD = _ENV.ncu() or "ncu"
 
 
 # ------------------------------------------------------------------------------------------------

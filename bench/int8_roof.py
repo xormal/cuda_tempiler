@@ -19,31 +19,45 @@ fp16 отношение не имеет. Ошибка прошла через п
 
 Запуск: /home/alex/miniconda3/envs/vllm/bin/python bench/int8_roof.py --dev 0
 """
+
 import argparse
 import json
 import os
 import statistics
 import time
 
-PROJ = [("q", 3840, 4096), ("k,v", 3840, 2048), ("o", 4096, 3840),
-        ("gate,up", 3840, 15360), ("down", 15360, 3840)]
-MS = [512, 2048, 8192]          # где счёт связывает; при M<=64 связывает чтение, и формат не при чём
+PROJ = [
+    ("q", 3840, 4096),
+    ("k,v", 3840, 2048),
+    ("o", 4096, 3840),
+    ("gate,up", 3840, 15360),
+    ("down", 15360, 3840),
+]
+MS = [
+    512,
+    2048,
+    8192,
+]  # где счёт связывает; при M<=64 связывает чтение, и формат не при чём
 
 
 def bench(fn, target_ms=120.0):
     import torch
-    fn(); torch.cuda.synchronize()
+
+    fn()
+    torch.cuda.synchronize()
     e0, e1 = torch.cuda.Event(True), torch.cuda.Event(True)
     e0.record()
     for _ in range(3):
         fn()
-    e1.record(); torch.cuda.synchronize()
+    e1.record()
+    torch.cuda.synchronize()
     t = e0.elapsed_time(e1) / 3
     it = max(3, min(300, int(target_ms / max(t, 1e-4))))
     e0.record()
     for _ in range(it):
         fn()
-    e1.record(); torch.cuda.synchronize()
+    e1.record()
+    torch.cuda.synchronize()
     return e0.elapsed_time(e1) / it
 
 
@@ -55,6 +69,7 @@ def main():
     args = ap.parse_args()
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", str(args.dev))
     import torch
+
     dev = "cuda:0"
     rows = []
     for role, K, N in PROJ:
@@ -78,18 +93,26 @@ def main():
             for _ in range(args.rounds):
                 a = bench(lambda: torch.nn.functional.linear(x16, w16))
                 b = bench(lambda: torch.nn.functional.linear(x8f, w8f))
-                r_fp16.append(a); r_i8f.append(b)
+                r_fp16.append(a)
+                r_i8f.append(b)
                 try:
                     c = bench(lambda: torch._int_mm(x8, w8.t()))
                     r_dp4a.append(c)
                 except Exception as e:
                     err = f"{type(e).__name__}: {e}"
             med = statistics.median
-            rec = {"role": role, "K": K, "N": N, "M": M, "exact_pack": exact,
-                   "fp16_ms": med(r_fp16), "fp16_tflops": flop / (med(r_fp16) * 1e-3) / 1e12,
-                   "int8_as_fp16_ms": med(r_i8f),
-                   "int8_as_fp16_tflops": flop / (med(r_i8f) * 1e-3) / 1e12,
-                   "ratio_int8fp16_over_fp16": med(r_fp16) / med(r_i8f)}
+            rec = {
+                "role": role,
+                "K": K,
+                "N": N,
+                "M": M,
+                "exact_pack": exact,
+                "fp16_ms": med(r_fp16),
+                "fp16_tflops": flop / (med(r_fp16) * 1e-3) / 1e12,
+                "int8_as_fp16_ms": med(r_i8f),
+                "int8_as_fp16_tflops": flop / (med(r_i8f) * 1e-3) / 1e12,
+                "ratio_int8fp16_over_fp16": med(r_fp16) / med(r_i8f),
+            }
             if r_dp4a:
                 rec["dp4a_ms"] = med(r_dp4a)
                 rec["dp4a_tops"] = flop / (med(r_dp4a) * 1e-3) / 1e12
@@ -97,19 +120,32 @@ def main():
             else:
                 rec["dp4a_err"] = err
             rows.append(rec)
-            print(f"  {role:9s} K{K:6d} N{N:6d} M{M:5d}  fp16 {rec['fp16_tflops']:6.2f} | "
-                  f"int8-как-fp16 {rec['int8_as_fp16_tflops']:6.2f} "
-                  f"(x{rec['ratio_int8fp16_over_fp16']:.3f}) | "
-                  + (f"DP4A {rec['dp4a_tops']:6.2f} (x{rec['ratio_dp4a_over_fp16']:.3f})"
-                     if r_dp4a else f"DP4A -- {err}")
-                  + ("  укладка ТОЧНА" if exact else "  !!! УКЛАДКА НЕТОЧНА"))
+            print(
+                f"  {role:9s} K{K:6d} N{N:6d} M{M:5d}  fp16 {rec['fp16_tflops']:6.2f} | "
+                f"int8-как-fp16 {rec['int8_as_fp16_tflops']:6.2f} "
+                f"(x{rec['ratio_int8fp16_over_fp16']:.3f}) | "
+                + (
+                    f"DP4A {rec['dp4a_tops']:6.2f} (x{rec['ratio_dp4a_over_fp16']:.3f})"
+                    if r_dp4a
+                    else f"DP4A -- {err}"
+                )
+                + ("  укладка ТОЧНА" if exact else "  !!! УКЛАДКА НЕТОЧНА")
+            )
             del x16, w16, xq, wq, x8f, w8f, x8, w8
             torch.cuda.empty_cache()
     os.makedirs(args.out, exist_ok=True)
     p = os.path.join(args.out, "int8_roof.json")
     with open(p, "w") as f:
-        json.dump({"gpu": torch.cuda.get_device_name(0), "rows": rows,
-                   "ts": time.strftime("%Y-%m-%d %H:%M")}, f, indent=1, ensure_ascii=False)
+        json.dump(
+            {
+                "gpu": torch.cuda.get_device_name(0),
+                "rows": rows,
+                "ts": time.strftime("%Y-%m-%d %H:%M"),
+            },
+            f,
+            indent=1,
+            ensure_ascii=False,
+        )
     print("# записано:", p)
 
 

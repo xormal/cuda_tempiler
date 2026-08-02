@@ -79,7 +79,9 @@ _ARCH = "nullarch"
 
 
 def _r(sym, val, units, note=""):
-    return Rate(sym, float(val), units, "MODEL", note=note or "подставная величина, замера нет")
+    return Rate(
+        sym, float(val), units, "MODEL", note=note or "подставная величина, замера нет"
+    )
 
 
 _SYMBOLS = {
@@ -90,12 +92,16 @@ _SYMBOLS = {
     "LATENCY.BBB": _r("LATENCY.BBB", 4.0, "такт"),
     "LATENCY.CCC": _r("LATENCY.CCC", 21.0, "такт"),
     "GEOM.SMS": _r("GEOM.SMS", PROCS, "процессор"),
-    "GEOM.SCHEDULERS_PER_SM": _r("GEOM.SCHEDULERS_PER_SM", SCHEDULERS, "планировщик/процессор"),
+    "GEOM.SCHEDULERS_PER_SM": _r(
+        "GEOM.SCHEDULERS_PER_SM", SCHEDULERS, "планировщик/процессор"
+    ),
     "GEOM.WARP_SLOTS_PER_SM": _r("GEOM.WARP_SLOTS_PER_SM", WARP_SLOTS, "слот"),
     "GEOM.THREADS_PER_WARP": _r("GEOM.THREADS_PER_WARP", LANES, "полоса/пучок"),
     "GEOM.SMEM_PER_SM": _r("GEOM.SMEM_PER_SM", SMEM_PER_PROC, "байт"),
     "GEOM.SMEM_PER_CTA_MAX": _r("GEOM.SMEM_PER_CTA_MAX", SMEM_PER_CTA_MAX, "байт"),
-    "GEOM.REGFILE_WORDS_PER_SM": _r("GEOM.REGFILE_WORDS_PER_SM", REG_FILE_WORDS, "слово"),
+    "GEOM.REGFILE_WORDS_PER_SM": _r(
+        "GEOM.REGFILE_WORDS_PER_SM", REG_FILE_WORDS, "слово"
+    ),
     "GEOM.REG_ISA_LIMIT": _r("GEOM.REG_ISA_LIMIT", REG_LIMIT, "регистр"),
     "GEOM.REG_ALLOC_GRANULARITY": _r("GEOM.REG_ALLOC_GRANULARITY", REG_GRAN, "регистр"),
     "GEOM.CLOCK_MHZ": _r("GEOM.CLOCK_MHZ", 777, "МГц"),
@@ -158,8 +164,12 @@ class NullarchMachine:
 class NullarchMemory:
     def levels(self):
         return (
-            MemLevel("scratch", _r("MEM.scratch.BYTES", SMEM_PER_PROC, "байт"),
-                     _r("MEM.scratch.BW", 1.0, "ед/такт"), _r("MEM.scratch.LAT", 13.0, "такт")),
+            MemLevel(
+                "scratch",
+                _r("MEM.scratch.BYTES", SMEM_PER_PROC, "байт"),
+                _r("MEM.scratch.BW", 1.0, "ед/такт"),
+                _r("MEM.scratch.LAT", 13.0, "такт"),
+            ),
         )
 
     def wavefronts(self, lane_words, width_bytes):
@@ -205,7 +215,9 @@ class NullarchTensor:
         return (
             TensorOp(
                 id="CCC.m4n4k2",
-                m=4, n=4, k=2,
+                m=4,
+                n=4,
+                k=2,
                 in_dtypes=("q7", "q7"),
                 acc_dtype="w21",
                 frag=FragmentMap(a=_fa, b=_fb, c=_fc),
@@ -220,7 +232,9 @@ class NullarchTensor:
         for o in self.ops():
             if o.in_dtypes == tuple(in_dtypes) and o.acc_dtype == acc_dtype:
                 return o
-        raise PluginCapabilityError("nullarch: нет тензорной операции %r/%r" % (in_dtypes, acc_dtype))
+        raise PluginCapabilityError(
+            "nullarch: нет тензорной операции %r/%r" % (in_dtypes, acc_dtype)
+        )
 
 
 class NullarchResources:
@@ -241,7 +255,11 @@ class NullarchResources:
     def occupancy(self, regs, smem_bytes, threads):
         warps_per_cta = max(1, threads // LANES)
         by_reg = REG_FILE_WORDS // max(1, regs) // LANES
-        by_smem = (SMEM_PER_PROC // max(1, smem_bytes)) * warps_per_cta if smem_bytes else WARP_SLOTS
+        by_smem = (
+            (SMEM_PER_PROC // max(1, smem_bytes)) * warps_per_cta
+            if smem_bytes
+            else WARP_SLOTS
+        )
         w = max(0, min(WARP_SLOTS, by_reg, by_smem))
         limiter = "regs" if by_reg <= by_smem else "smem"
         return Occupancy(int(w), int(w // warps_per_cta), int(regs), limiter)
@@ -249,21 +267,36 @@ class NullarchResources:
     def verdict(self, regs, max_live, smem_bytes, threads):
         occ = self.occupancy(regs, smem_bytes, threads)
         if smem_bytes > SMEM_PER_CTA_MAX:
-            return ResourceVerdict(False, "WALL_SMEM", occ,
-                                   "нужно %d Б при потолке %d Б" % (smem_bytes, SMEM_PER_CTA_MAX))
+            return ResourceVerdict(
+                False,
+                "WALL_SMEM",
+                occ,
+                "нужно %d Б при потолке %d Б" % (smem_bytes, SMEM_PER_CTA_MAX),
+            )
         if occ.warps_per_sm <= 0 or occ.ctas_per_sm <= 0:
-            return ResourceVerdict(False, "NO_BUDGET", occ, "ни один блок не резидентен")
+            return ResourceVerdict(
+                False, "NO_BUDGET", occ, "ни один блок не резидентен"
+            )
         need = self.spill_threshold(max_live)
         if need > REG_LIMIT:
-            return ResourceVerdict(False, "WALL_REG", occ,
-                                   "нужно %d > потолка %d" % (need, REG_LIMIT))
+            return ResourceVerdict(
+                False, "WALL_REG", occ, "нужно %d > потолка %d" % (need, REG_LIMIT)
+            )
         budget = self.reg_budget(occ.warps_per_sm)
         if need > budget:
             over = need - budget
-            return ResourceVerdict(over <= FREE_SPILLS, "SPILL", occ,
-                                   "разлив %d значений (нужно %d, бюджет %d)" % (over, need, budget))
-        return ResourceVerdict(True, "FITS", occ,
-                               "нужно %d, бюджет %d при %d пучках" % (need, budget, occ.warps_per_sm))
+            return ResourceVerdict(
+                over <= FREE_SPILLS,
+                "SPILL",
+                occ,
+                "разлив %d значений (нужно %d, бюджет %d)" % (over, need, budget),
+            )
+        return ResourceVerdict(
+            True,
+            "FITS",
+            occ,
+            "нужно %d, бюджет %d при %d пучках" % (need, budget, occ.warps_per_sm),
+        )
 
     def wave_quantum(self, occ):
         return PROCS * max(1, occ.ctas_per_sm)
@@ -296,7 +329,9 @@ class NullarchSync:
         return (make_transaction(self.CONSUMES_REGISTERS),)
 
     def barriers(self):
-        return (BarrierKind("cta", "cta", False, False, _r("BARRIER.CTA", 6.0, "такт")),)
+        return (
+            BarrierKind("cta", "cta", False, False, _r("BARRIER.CTA", 6.0, "такт")),
+        )
 
     def rendezvous_cost(self, barrier_id, participants):
         if barrier_id != "cta":
@@ -330,8 +365,11 @@ class NullarchSkeletons:
         if op is None or getattr(op, "kind", None) != "gemm":
             raise PluginCapabilityError("nullarch умеет только 'gemm'")
         for tile, depth in itertools.product((4, 8), (1, 2, 3)):
-            yield Hyperform(plugin=_ARCH, params={"tile": tile, "depth": depth},
-                            key="t%dd%d" % (tile, depth))
+            yield Hyperform(
+                plugin=_ARCH,
+                params={"tile": tile, "depth": depth},
+                key="t%dd%d" % (tile, depth),
+            )
 
     def estimate_atoms(self, op, h):
         """ТЕЛО, ПЕРИОД КОТОРОГО СЧИТАН РУКОЙ (см. шапку модуля).
@@ -351,8 +389,13 @@ class NullarchSkeletons:
         return [
             Atom(0, AtomKind.COMPUTE, "AAA x%d" % n_a, {"X": float(n_a)}, 9.0),
             Atom(1, AtomKind.COMPUTE, "BBB x%d" % n_b, {"Y": float(n_b)}, 4.0),
-            Atom(2, AtomKind.XFER_ISSUE, "CCC x%d" % (n_c * d),
-                 {"Z": float(n_c * d) * z_cost}, 21.0),
+            Atom(
+                2,
+                AtomKind.XFER_ISSUE,
+                "CCC x%d" % (n_c * d),
+                {"Z": float(n_c * d) * z_cost},
+                21.0,
+            ),
         ]
 
     def resources_of(self, op, h):
@@ -370,12 +413,20 @@ class NullarchSkeletons:
         return int(regs), int(regs - REG_OVERHEAD), int(smem)
 
     def launch_of(self, op, h):
-        return Launch(grid_ctas=PROCS * 2, threads=LANES * 2, smem_bytes=self.resources_of(op, h)[2],
-                      entry="nullarch_%s" % h.key)
+        return Launch(
+            grid_ctas=PROCS * 2,
+            threads=LANES * 2,
+            smem_bytes=self.resources_of(op, h)[2],
+            entry="nullarch_%s" % h.key,
+        )
 
     def render(self, op, h):
-        return Rendered(source="// nullarch %s\n" % h.key, launch=self.launch_of(op, h),
-                        includes=(), notes="подставная архитектура: собирать нечего")
+        return Rendered(
+            source="// nullarch %s\n" % h.key,
+            launch=self.launch_of(op, h),
+            includes=(),
+            notes="подставная архитектура: собирать нечего",
+        )
 
     def entry_probe(self, h):
         return "nullarch_%s" % h.key
@@ -386,7 +437,9 @@ class NullarchToolchain:
         return ["--nullarch"]
 
     def compile(self, *a, **k):
-        raise PluginCapabilityError("nullarch: собирать нечего, это подставная архитектура")
+        raise PluginCapabilityError(
+            "nullarch: собирать нечего, это подставная архитектура"
+        )
 
     def disasm(self, b):
         raise PluginCapabilityError("nullarch: разбирать нечего")
@@ -429,7 +482,9 @@ class NullarchPlugin:
         self.meters = NullarchMeters()
 
     def declared_stubs(self):
-        return ("вся архитектура подставная: сборки, приборов и карты нет по построению",)
+        return (
+            "вся архитектура подставная: сборки, приборов и карты нет по построению",
+        )
 
     def selftest(self) -> Report:
         r = Report(self.id)
@@ -439,23 +494,41 @@ class NullarchPlugin:
         h = next(iter(self.skeletons.variants(op)))
         atoms = self.skeletons.estimate_atoms(op, h)
         b = bound(atoms, self.machine.channels(), warps_per_sm=2)
-        r.check("ПЕРИОД, СЧИТАННЫЙ РУКОЙ: T >= 28", abs(b.T - 28.0) < 1e-9, "получено %.2f" % b.T)
-        r.check("связывающий канал -- Z (ресурс процессора)", b.binding == "Z", b.binding)
-        r.check("ни одна ставка не выдана за замер",
-                all(s.status != "MEASURED" for s in self.machine.symbols().values()))
+        r.check(
+            "ПЕРИОД, СЧИТАННЫЙ РУКОЙ: T >= 28",
+            abs(b.T - 28.0) < 1e-9,
+            "получено %.2f" % b.T,
+        )
+        r.check(
+            "связывающий канал -- Z (ресурс процессора)", b.binding == "Z", b.binding
+        )
+        r.check(
+            "ни одна ставка не выдана за замер",
+            all(s.status != "MEASURED" for s in self.machine.symbols().values()),
+        )
         try:
             self.machine.rate("CAP.TENSOR")
             r.check("закрытая таблица отказывает на чужом символе", False)
         except UnknownSymbol:
             r.check("закрытая таблица отказывает на чужом символе", True)
         o = self.tensor.ops()[0]
-        r.check("накопитель выводится из КАРТЫ: плитка 4x4 -> 2 на полосу",
-                acc_regs_per_thread((4, 4), o) == 2)
-        r.check("загрузок-на-mma при плитке 8x8 = 1.00",
-                abs(operand_loads_per_mma((8, 8), o) - 1.0) < 1e-9)
-        r.check("банков 7 по 8 Б: шаг 7 слов даёт ПОЛНЫЙ конфликт",
-                self.memory.wavefronts([l * 7 for l in range(LANES)], 8).degree == float(LANES))
-        r.check("Q(W): бюджет при 16 пучках", self.resources.reg_budget(16) == min(REG_LIMIT, 6 * 8))
+        r.check(
+            "накопитель выводится из КАРТЫ: плитка 4x4 -> 2 на полосу",
+            acc_regs_per_thread((4, 4), o) == 2,
+        )
+        r.check(
+            "загрузок-на-mma при плитке 8x8 = 1.00",
+            abs(operand_loads_per_mma((8, 8), o) - 1.0) < 1e-9,
+        )
+        r.check(
+            "банков 7 по 8 Б: шаг 7 слов даёт ПОЛНЫЙ конфликт",
+            self.memory.wavefronts([l * 7 for l in range(LANES)], 8).degree
+            == float(LANES),
+        )
+        r.check(
+            "Q(W): бюджет при 16 пучках",
+            self.resources.reg_budget(16) == min(REG_LIMIT, 6 * 8),
+        )
         v = self.resources.verdict(60, 57, 2000, LANES * 2)
         r.check("ресурсный вердикт считается", v.code in ("FITS", "SPILL"), v.explain)
         return r
@@ -464,9 +537,18 @@ class NullarchPlugin:
 def _demo_op():
     from ..base import OpSpec
 
-    return OpSpec(kind="gemm", dtype_a="q7", dtype_b="q7", dtype_c="q7", dtype_acc="w21",
-                  layout_a="k", layout_b="k", layout_c="n", shapes={"M": 64, "N": 64, "K": 16},
-                  tol_rel_l2=1e-3)
+    return OpSpec(
+        kind="gemm",
+        dtype_a="q7",
+        dtype_b="q7",
+        dtype_c="q7",
+        dtype_acc="w21",
+        layout_a="k",
+        layout_b="k",
+        layout_c="n",
+        shapes={"M": 64, "N": 64, "K": 16},
+        tol_rel_l2=1e-3,
+    )
 
 
 _P = None

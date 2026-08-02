@@ -55,6 +55,13 @@ class Sm70Classifier:
         m = isa()
         op = instr_text.strip().split()[0] if instr_text.strip() else ""
         base = op.split(".")[0]
+        # КЛАСС ISA И КАНАЛ -- РАЗНЫЕ ОСИ, И ПУТАТЬ ИХ НЕЛЬЗЯ.
+        # Прежняя редакция клала в поле `channel` КЛАСС разборщика («плавающие», «загр.разд»,
+        # «тензорные»), если тот сумел ответить.  По контракту `AtomClass.channel` -- КЛЮЧ
+        # таблицы `Machine.channels()`, а таких ключей там нет ни одного: любой потребитель
+        # получил бы промах и списал бы команду в никуда.  Молча, потому что `classify` пока
+        # никем не вызывается -- это ЛАТЕНТНЫЙ тихо неверный вердикт, а не работающее поведение.
+        # Класс разборщика доступен напрямую (isa_sass.classify) и в подмене не нуждается.
         cls = None
         for fn in ("classify", "classify_op", "op_class"):
             if hasattr(m, fn):
@@ -70,10 +77,10 @@ class Sm70Classifier:
                 width = w // 8
                 break
         return AtomClass(
-            channel=channel if cls is None else str(cls),
+            channel=channel,
             cycles=_CYCLES.get(channel, 1.0),
             width_bytes=width,
-            latency_class=base,
+            latency_class=base if cls is None else str(cls),
             predicated=instr_text.strip().startswith("@"),
         )
 
@@ -82,7 +89,9 @@ class Sm70Classifier:
         for fn in ("parse_sass", "load", "decode"):
             if hasattr(m, fn):
                 return getattr(m, fn)(str(binary), kernel_regex)
-        raise PluginCapabilityError("isa_sass.py не отдаёт разборщик под известным именем")
+        raise PluginCapabilityError(
+            "isa_sass.py не отдаёт разборщик под известным именем"
+        )
 
     def control_fields(self, word: int) -> ControlFields:
         """ЧТЕНИЕ управляющих полей.  Запись НЕ реализована намеренно (см. шапку)."""
@@ -109,7 +118,18 @@ _CHANNEL = {
     "FADD": "FPU",
     "FMUL": "FPU",
     "FSETP": "FPU",
+    # LAW=L-SFU-RATE-IS-MUFU.  Ставка SFU 8.00 замерена НА ЭТОЙ команде и НИ НА КАКОЙ ДРУГОЙ.
     "MUFU": "SFU",
+    # КОНВЕРСИИ -- НЕ SFU, и это ЗАМЕР, а не удобство: маршрут с 8 конверсиями на группу при
+    # 24 варпах дал бы каналу 2304 такта против 1536 у тензорного, то есть модель предсказала
+    # бы >= +50 % там, где замерено +32.3 %.  Модель, нарушающая собственный замер, отвергается.
+    # Своей ставки у конверсий НЕТ (верхняя граница из замера 7.05), поэтому они входят по
+    # классу плавающих -- ровно как в модели стенда.  Прежде их здесь не было ВОВСЕ, и они
+    # молча падали в умолчание ценой 1.00 такта: вдвое дешевле, чем в нашей же второй модели.
+    "I2F": "FPU",
+    "F2F": "FPU",
+    "F2I": "FPU",
+    "I2I": "FPU",
     "IADD3": "ALU",
     "IMAD": "ALU",
     "LOP3": "ALU",
@@ -124,5 +144,13 @@ _CHANNEL = {
     "EXIT": "BRANCH",
     "BAR": "BRANCH",
 }
-_CYCLES = {"TENSOR": 2.0, "ALU": 2.0, "FPU": 2.0, "SFU": 8.0, "MIO": 1.0, "LSU": 1.0,
-           "BRANCH": 1.0, "OTHER": 1.0}
+_CYCLES = {
+    "TENSOR": 2.0,
+    "ALU": 2.0,
+    "FPU": 2.0,
+    "SFU": 8.0,
+    "MIO": 1.0,
+    "LSU": 1.0,
+    "BRANCH": 1.0,
+    "OTHER": 1.0,
+}

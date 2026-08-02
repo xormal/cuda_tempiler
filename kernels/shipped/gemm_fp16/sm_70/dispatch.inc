@@ -13,9 +13,9 @@
 // вызывающего. Возврат cudaErrorInvalidConfiguration -- ЗАКОННЫЙ ответ, а не сбой.
 
   if (p.M <= 16 && (p.N % 128) == 0 && (p.K % 64) == 0)
-    return launch_one<16,128,64,1,4,2,1,2,8,0,2,true,2>(p, s);  // m16x128k64
+    return launch_one<16,128,64,1,4,2,1,1,8,0,2,true,2>(p, s);  // m16x128k64
   if (p.M <= 64 && (p.N % 128) == 0 && (p.K % 64) == 0)
-    return launch_one<32,128,64,2,4,2,1,2,8,0,2,true,2>(p, s);  // m32x128k64
+    return launch_one<32,128,64,2,4,2,1,1,8,0,2,true,2>(p, s);  // m32x128k64
   if (p.M <= 256 && (p.N % 128) == 0 && (p.K % 64) == 0)
     return launch_one<64,128,64,2,4,2,1,2,8,0,2,true,2>(p, s);  // m64x128k64
   if ((p.N % 256) == 0 && (p.K % 32) == 0)

@@ -16,8 +16,18 @@
 from __future__ import annotations
 
 SCHEMA = "tempo/calib/2"
-REQUIRED = ("id", "kind", "quantity", "units", "taken_with", "shape", "card",
-            "observability", "provenance", "plugin")
+REQUIRED = (
+    "id",
+    "kind",
+    "quantity",
+    "units",
+    "taken_with",
+    "shape",
+    "card",
+    "observability",
+    "provenance",
+    "plugin",
+)
 KINDS = ("padcurve", "phases", "law_points", "wf_per_inst", "conflict_share", "rate")
 OBSERVABILITY = ("clean", "code_edit", "derived")
 
@@ -29,9 +39,11 @@ def validate(rec: dict) -> None:
     if rec["kind"] not in KINDS:
         raise ValueError("вид записи %r вне %r" % (rec["kind"], KINDS))
     if rec["observability"] not in OBSERVABILITY:
-        raise ValueError("observability %r вне %r" % (rec["observability"], OBSERVABILITY))
+        raise ValueError(
+            "observability %r вне %r" % (rec["observability"], OBSERVABILITY)
+        )
     card = rec.get("card") or {}
     if card.get("foreign_procs", 1) != 0:
         raise ValueError("замер снят при чужих процессах на карте -- недействителен")
     if "license" not in rec:
-        rec["license"] = "LicenseRef-TRL-1.0"   # умолчание; для присланных -- явное иное
+        rec["license"] = "LicenseRef-TRL-1.0"  # умолчание; для присланных -- явное иное

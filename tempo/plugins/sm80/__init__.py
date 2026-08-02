@@ -71,10 +71,33 @@ def data(name: str) -> dict:
 # ТАБЛИЦА СТАВОК.  Каждая -- SPEC (паспорт, запрещён в границе времени) либо NOT_MEASURED.
 # Ни одной MEASURED: их появление обязано сопровождаться картой и нулём чужих процессов.
 # --------------------------------------------------------------------------------------------
-_CHANNEL_SYMBOLS = ("TENSOR", "ALU", "FPU", "SFU", "ISSUE", "BRANCH", "LSU", "MIO", "ASYNC")
+_CHANNEL_SYMBOLS = (
+    "TENSOR",
+    "ALU",
+    "FPU",
+    "SFU",
+    "ISSUE",
+    "BRANCH",
+    "LSU",
+    "MIO",
+    "ASYNC",
+)
 _LATENCY_SYMBOLS = (
-    "FFMA", "IADD3", "LOP3", "IMAD", "MUFU", "LDS", "SHFL", "STS", "STG", "LDC", "S2R",
-    "LDG", "HMMA", "LDSM", "CPASYNC",
+    "FFMA",
+    "IADD3",
+    "LOP3",
+    "IMAD",
+    "MUFU",
+    "LDS",
+    "SHFL",
+    "STS",
+    "STG",
+    "LDC",
+    "S2R",
+    "LDG",
+    "HMMA",
+    "LDSM",
+    "CPASYNC",
 )
 
 
@@ -82,34 +105,48 @@ def _build_symbols() -> Mapping[str, Rate]:
     out = {}
     for c in _CHANNEL_SYMBOLS:
         out["CAP." + c] = not_measured(
-            "CAP." + c, "такт/команду/планировщик",
+            "CAP." + c,
+            "такт/команду/планировщик",
             "ПЕРЕМЕРИТЬ стендом. Форма закона та же, число -- нет. Канал ASYNC на Volta "
             "не существует вовсе.",
         )
     for l in _LATENCY_SYMBOLS:
         out["LATENCY." + l] = not_measured(
-            "LATENCY." + l, "такт",
+            "LATENCY." + l,
+            "такт",
             "ПЕРЕМЕРИТЬ лестницей зависимых цепей. FFMA ожидаемо 4, LDS/LDG -- нет.",
         )
     m = data("machine")
     for name, g in m["geometry"].items():
         out["GEOM." + name.upper()] = Rate(
-            symbol="GEOM." + name.upper(), value=float(g["value"]), units=g["units"],
-            status=g["status"], note=g.get("note", ""),
+            symbol="GEOM." + name.upper(),
+            value=float(g["value"]),
+            units=g["units"],
+            status=g["status"],
+            note=g.get("note", ""),
         )
     for name, p in m["peak"].items():
         out["PEAK." + name.upper()] = Rate(
-            symbol="PEAK." + name.upper(), value=float(p["value"]), units=p["units"],
-            status=p["status"], note=p.get("note", ""),
+            symbol="PEAK." + name.upper(),
+            value=float(p["value"]),
+            units=p["units"],
+            status=p["status"],
+            note=p.get("note", ""),
         )
     for s, note in (
-        ("REG.OVERHEAD", "на Volta ровно 7 и до единицы; здесь -- перемерить компиляторным свидетелем"),
+        (
+            "REG.OVERHEAD",
+            "на Volta ровно 7 и до единицы; здесь -- перемерить компиляторным свидетелем",
+        ),
         ("REG.FREE_SPILLS", "на Volta 2 (разность двух порогов); здесь -- перемерить"),
         ("REG.SPILL_STEP", "на Volta x5.1"),
         ("REG.SPILL_EDGE", "на Volta x75.7"),
         ("REG.SECOND_CTA_SMEM", "форма smem/2 та же, число другое (164 КБ вместо 96)"),
         ("REG.SECOND_CTA_REGS", "перемерить"),
-        ("MIO.WAVEFRONT_BYTES", "банков те же 32x4 Б, но ЦЕНА вайвфронта -- перемерить"),
+        (
+            "MIO.WAVEFRONT_BYTES",
+            "банков те же 32x4 Б, но ЦЕНА вайвфронта -- перемерить",
+        ),
         ("MIO.CONFLICT", "вход из карты адресов, не константа железа"),
         ("WAVE.QUANTUM", "108 SM вместо 80 -- но подтвердить замером, а не паспортом"),
         ("ISSUE.SLOT_PRICE_IDLE", "метод переносится, число -- нет"),
@@ -139,8 +176,11 @@ class Sm80Machine:
 
     def channels(self):
         return {
-            c: Channel(name=c, scope=("sm" if c in ("MIO", "ASYNC") else "sched"),
-                       capacity=self.rate("CAP." + c))
+            c: Channel(
+                name=c,
+                scope=("sm" if c in ("MIO", "ASYNC") else "sched"),
+                capacity=self.rate("CAP." + c),
+            )
             for c in _CHANNEL_SYMBOLS
         }
 
@@ -179,12 +219,24 @@ class Sm80Memory:
     def levels(self):
         nm = lambda s, u: Rate(s, float("nan"), u, "NOT_MEASURED", note="ПЕРЕМЕРИТЬ")
         return (
-            MemLevel("smem", nm("MEM.smem.BYTES", "байт"), nm("MEM.smem.BW", "ГБ/с"),
-                     nm("MEM.smem.LAT", "такт")),
-            MemLevel("l2", nm("MEM.l2.BYTES", "байт"), nm("MEM.l2.BW", "ГБ/с"),
-                     nm("MEM.l2.LAT", "такт")),
-            MemLevel("hbm", nm("MEM.hbm.BYTES", "байт"), nm("MEM.hbm.BW", "ГБ/с"),
-                     nm("MEM.hbm.LAT", "такт")),
+            MemLevel(
+                "smem",
+                nm("MEM.smem.BYTES", "байт"),
+                nm("MEM.smem.BW", "ГБ/с"),
+                nm("MEM.smem.LAT", "такт"),
+            ),
+            MemLevel(
+                "l2",
+                nm("MEM.l2.BYTES", "байт"),
+                nm("MEM.l2.BW", "ГБ/с"),
+                nm("MEM.l2.LAT", "такт"),
+            ),
+            MemLevel(
+                "hbm",
+                nm("MEM.hbm.BYTES", "байт"),
+                nm("MEM.hbm.BW", "ГБ/с"),
+                nm("MEM.hbm.LAT", "такт"),
+            ),
         )
 
     def wavefronts(self, lane_words, width_bytes):
@@ -221,7 +273,9 @@ class Sm80Memory:
         )
 
     def residency_policy(self):
-        return "lru+window"  # cudaAccessPolicyWindow -- рычаг, которого на Volta НЕТ ВОВСЕ
+        return (
+            "lru+window"  # cudaAccessPolicyWindow -- рычаг, которого на Volta НЕТ ВОВСЕ
+        )
 
 
 class Sm80TensorUnit:
@@ -244,7 +298,9 @@ class Sm80Resources:
         )
 
     def spill_threshold(self, max_live):
-        raise PluginCapabilityError("REG.OVERHEAD на sm_80 не перемерен (на sm_70 ровно 7)")
+        raise PluginCapabilityError(
+            "REG.OVERHEAD на sm_80 не перемерен (на sm_70 ровно 7)"
+        )
 
     def free_spills(self):
         raise PluginCapabilityError("число бесплатных разлитых на sm_80 не перемерено")
@@ -262,7 +318,9 @@ class Sm80Resources:
         )
 
     def wave_quantum(self, occ):
-        raise PluginCapabilityError("квант волны sm_80 не подтверждён замером (паспорт 108 SM)")
+        raise PluginCapabilityError(
+            "квант волны sm_80 не подтверждён замером (паспорт 108 SM)"
+        )
 
     def declared_bounds_required(self):
         return True
@@ -288,11 +346,24 @@ class Sm80Sync:
 
     def barriers(self):
         return (
-            BarrierKind("cta", "cta", phased=False, counted=False,
-                        cost=not_measured("BARRIER.CTA", "такт", "ПЕРЕМЕРИТЬ")),
-            BarrierKind("mbarrier", "cta", phased=True, counted=True,
-                        cost=not_measured("BARRIER.MBARRIER", "такт",
-                                          "ФАЗНЫЙ И СЧЁТНЫЙ -- категории, которой на Volta нет")),
+            BarrierKind(
+                "cta",
+                "cta",
+                phased=False,
+                counted=False,
+                cost=not_measured("BARRIER.CTA", "такт", "ПЕРЕМЕРИТЬ"),
+            ),
+            BarrierKind(
+                "mbarrier",
+                "cta",
+                phased=True,
+                counted=True,
+                cost=not_measured(
+                    "BARRIER.MBARRIER",
+                    "такт",
+                    "ФАЗНЫЙ И СЧЁТНЫЙ -- категории, которой на Volta нет",
+                ),
+            ),
         )
 
     def rendezvous_cost(self, barrier_id, participants):
@@ -387,12 +458,18 @@ class Sm80Plugin:
     def declared_stubs(self):
         p = data("porting")
         out = ["ВЕСЬ ПЛАГИН -- ЗАГЛУШКА: ни одного замера на железе."]
-        out += ["ПЕРЕМЕРИТЬ (та же форма закона, другое число): " + x["law"]
-                for x in p["class_A_same_law_other_numbers"]]
-        out += ["ПЕРЕПИСАТЬ (новая категория, не число): %s -- %s" % (x["what"], x["dies"])
-                for x in p["class_B_new_category_needs_code"]]
-        out += ["ПЕРЕВЫВЕСТИ ФАЛЬСИФИКАТОРОМ: %s -- %s" % (x["conclusion"], x["action"])
-                for x in p["class_C_conclusions_that_must_be_rederived"]]
+        out += [
+            "ПЕРЕМЕРИТЬ (та же форма закона, другое число): " + x["law"]
+            for x in p["class_A_same_law_other_numbers"]
+        ]
+        out += [
+            "ПЕРЕПИСАТЬ (новая категория, не число): %s -- %s" % (x["what"], x["dies"])
+            for x in p["class_B_new_category_needs_code"]
+        ]
+        out += [
+            "ПЕРЕВЫВЕСТИ ФАЛЬСИФИКАТОРОМ: %s -- %s" % (x["conclusion"], x["action"])
+            for x in p["class_C_conclusions_that_must_be_rederived"]
+        ]
         return tuple(out)
 
     def selftest(self) -> Report:
@@ -400,12 +477,18 @@ class Sm80Plugin:
         M = self.machine
         syms = M.symbols()
         r.check("таблица ставок объявлена", len(syms) > 0, "%d символов" % len(syms))
-        r.check("НИ ОДНОЙ ставки MEASURED (иначе каркас врёт)",
-                all(s.status != "MEASURED" for s in syms.values()))
-        r.check("паспортные ставки помечены SPEC, а не выданы за замер",
-                M.peak("hbm_spec").status == "SPEC")
-        r.check("полоса, против которой планируют, объявлена НЕ ЗАМЕРЕННОЙ",
-                M.peak("hbm_copy").status == "NOT_MEASURED")
+        r.check(
+            "НИ ОДНОЙ ставки MEASURED (иначе каркас врёт)",
+            all(s.status != "MEASURED" for s in syms.values()),
+        )
+        r.check(
+            "паспортные ставки помечены SPEC, а не выданы за замер",
+            M.peak("hbm_spec").status == "SPEC",
+        )
+        r.check(
+            "полоса, против которой планируют, объявлена НЕ ЗАМЕРЕННОЙ",
+            M.peak("hbm_copy").status == "NOT_MEASURED",
+        )
         try:
             M.rate("CAP.NONEXISTENT")
             r.check("закрытая таблица отказывает", False)
@@ -415,11 +498,16 @@ class Sm80Plugin:
         # Отсекатель обязан МОЛЧАТЬ, а не считать по волтовским числам
         for name, fn in (
             ("ресурсный вердикт", lambda: self.resources.verdict(128, 100, 32768, 256)),
-            ("тензорная операция", lambda: self.tensor.select(("fp16", "fp16"), "fp32")),
+            (
+                "тензорная операция",
+                lambda: self.tensor.select(("fp16", "fp16"), "fp32"),
+            ),
             ("скелеты", lambda: list(self.skeletons.variants(None))),
             ("счётчики", lambda: self.meters.counters("smem_wavefronts")),
-            ("семейство дополнений", lambda: list(self.memory.pad_family(
-                Layout("x", 32, 16, 2)))),
+            (
+                "семейство дополнений",
+                lambda: list(self.memory.pad_family(Layout("x", 32, 16, 2))),
+            ),
         ):
             try:
                 fn()
@@ -429,25 +517,39 @@ class Sm80Plugin:
 
         # ФАКТЫ ISA, которые каркас вправе утверждать без замера
         tx = self.sync.transactions()[0]
-        r.check("cp.async объявлен НЕ съедающим регистры (факт ISA, не величина)",
-                tx.consumes_registers is False)
-        r.check("ожидание объявлено ЯВНЫМ (в отличие от табло Volta)",
-                tx.wait_op == "cp.async.wait_group")
-        r.check("ось async_depth объявлена -- ось это ОТКРЫТЫЙ словарь",
-                any(a.name == "async_depth" for a in self.skeletons.axes()))
-        r.check("mbarrier объявлен ФАЗНЫМ и СЧЁТНЫМ",
-                any(b.phased and b.counted for b in self.sync.barriers()))
-        r.check("политика резидентности отличается от волтовской (окно L2)",
-                self.memory.residency_policy() != "lru")
+        r.check(
+            "cp.async объявлен НЕ съедающим регистры (факт ISA, не величина)",
+            tx.consumes_registers is False,
+        )
+        r.check(
+            "ожидание объявлено ЯВНЫМ (в отличие от табло Volta)",
+            tx.wait_op == "cp.async.wait_group",
+        )
+        r.check(
+            "ось async_depth объявлена -- ось это ОТКРЫТЫЙ словарь",
+            any(a.name == "async_depth" for a in self.skeletons.axes()),
+        )
+        r.check(
+            "mbarrier объявлен ФАЗНЫМ и СЧЁТНЫМ",
+            any(b.phased and b.counted for b in self.sync.barriers()),
+        )
+        r.check(
+            "политика резидентности отличается от волтовской (окно L2)",
+            self.memory.residency_policy() != "lru",
+        )
 
         # Честность каркаса
         st = self.declared_stubs()
-        r.check("перечень заглушек начинается с признания, что замеров нет",
-                st[0].startswith("ВЕСЬ ПЛАГИН"))
-        r.check("перечень разделён на ПЕРЕМЕРИТЬ / ПЕРЕПИСАТЬ / ПЕРЕВЫВЕСТИ",
-                any(s.startswith("ПЕРЕМЕРИТЬ") for s in st)
-                and any(s.startswith("ПЕРЕПИСАТЬ") for s in st)
-                and any(s.startswith("ПЕРЕВЫВЕСТИ") for s in st))
+        r.check(
+            "перечень заглушек начинается с признания, что замеров нет",
+            st[0].startswith("ВЕСЬ ПЛАГИН"),
+        )
+        r.check(
+            "перечень разделён на ПЕРЕМЕРИТЬ / ПЕРЕПИСАТЬ / ПЕРЕВЫВЕСТИ",
+            any(s.startswith("ПЕРЕМЕРИТЬ") for s in st)
+            and any(s.startswith("ПЕРЕПИСАТЬ") for s in st)
+            and any(s.startswith("ПЕРЕВЫВЕСТИ") for s in st),
+        )
         return r
 
 

@@ -41,7 +41,8 @@ class Coverage:
             return "покрытие ПОЛНОЕ: %d ячеек, каждая ровно один раз" % self.total
         return (
             "покрытие НАРУШЕНО: непокрытых %d, посчитанных больше одного раза %d "
-            "(максимум %d на ячейку) из %d" % (self.zero, self.over, self.max_hits, self.total)
+            "(максимум %d на ячейку) из %d"
+            % (self.zero, self.over, self.max_hits, self.total)
         )
 
 

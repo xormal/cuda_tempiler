@@ -27,10 +27,12 @@ _GMEM_TO_SMEM = TransactionKind(
     wait_op=None,  # ожидание НЕЯВНОЕ: табло (scoreboard), отдельной инструкции нет
     granularity="instruction",
     in_flight_max=Rate(
-        "XFER.IN_FLIGHT", float("nan"), "запрос",
+        "XFER.IN_FLIGHT",
+        float("nan"),
+        "запрос",
         "NOT_MEASURED",
         note="ЗАМЕРЕНО КОСВЕННО: запросы в полёте и занятость -- ОДИН ресурс (конвейер страниц "
-             "через регистры НЕ РАБОТАЕТ). Отдельного числа нет.",
+        "через регистры НЕ РАБОТАЕТ). Отдельного числа нет.",
     ),
     occupies={"LSU": 1.0, "ISSUE": 1.0, "MIO": 1.0},  # LDG в регистр + STS из него
     consumes_registers=True,  # <-- ПОЛЕ-ФАЛЬСИФИКАТОР (гейт G8)
@@ -44,18 +46,28 @@ _BARRIERS = (
         scope="cta",
         phased=False,
         counted=False,
-        cost=Rate("BARRIER.CTA", 2.0, "% времени форварда", "MEASURED",
-                  note="фаза 'рандеву' = 2.0 % (разложение форварда). ЕДИНИЦА СОКРЫТИЯ ЗАДЕРЖКИ -- "
-                       "БЛОК: при одном резидентном блоке любой __syncthreads() останавливает SM целиком."),
+        cost=Rate(
+            "BARRIER.CTA",
+            2.0,
+            "% времени форварда",
+            "MEASURED",
+            note="фаза 'рандеву' = 2.0 % (разложение форварда). ЕДИНИЦА СОКРЫТИЯ ЗАДЕРЖКИ -- "
+            "БЛОК: при одном резидентном блоке любой __syncthreads() останавливает SM целиком.",
+        ),
     ),
     BarrierKind(
         id="warp",
         scope="warp",
         phased=False,
         counted=False,
-        cost=Rate("BARRIER.WARP", 0.0, "такт", "MODEL",
-                  note="__syncwarp: на Volta независимое планирование полос делает его обязательным, "
-                       "но его цена стендом не выделена"),
+        cost=Rate(
+            "BARRIER.WARP",
+            0.0,
+            "такт",
+            "MODEL",
+            note="__syncwarp: на Volta независимое планирование полос делает его обязательным, "
+            "но его цена стендом не выделена",
+        ),
     ),
 )
 

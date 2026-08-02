@@ -159,10 +159,27 @@ int main(int argc, char** argv) {
       auto cub = [&] { CB(cublasGemmEx(h, CUBLAS_OP_T, CUBLAS_OP_N, N, M, K, &al, dBh, CUDA_R_16F, K, dA, CUDA_R_16F, K, &be, dR, CUDA_R_16F, N, CUBLAS_COMPUTE_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP)); };
       cub(); CK(cudaDeviceSynchronize());
       const double tcb = T.run(cub, std::max(3, std::min(2000, (int)(300.0 / 1.0))));
-      // плечо fp16 нашего же конвейера (то же ядро, что выиграло в ходе 1)
+      // ПЛЕЧО fp16 -- ЛЕСТНИЦА ПОСТАВКИ (kernels/shipped/gemm_fp16/sm_70/select.py), а не
+      // жёстко зашитая пара конфигураций.
+      //
+      // ЧЕМ БЫЛО ПЛОХО ПРЕЖНЕЕ (это и есть цена ошибки, а не стиль): здесь стояли
+      // <128,256,32> при M>=128 и <32,128,32> иначе. Нижняя ветка -- BK=32, тогда как
+      // лестница на малом M берёт BK=64, и ровно там весь её выигрыш. Плечо выходило ВДВОЕ
+      // слабее собственного лучшего fp16 (gate,up M=1: 0.323 против 0.642 ТФЛОП/с), и
+      // заявленное «байтовый вес даёт x1.96» превращалось в 0.986 против своего же лучшего.
+      // ПРАВИЛО: соперник по своей же стороне -- ВСЕГДА ЛУЧШИЙ СВОЙ, иначе меришь не ход,
+      // а собственный недосмотр.
       auto f16 = [&] {
-        if (M >= 128) CH<128, 256, 32, 2, 4, 2, 8, 1>::launch(dA, dBh, dC, M, N, K);
-        else CH<32, 128, 32, 1, 4, 1, 8, 2>::launch(dA, dBh, dC, M, N, K);
+        if (M <= 16 && (N % 128) == 0 && (K % 64) == 0)
+          CH<16, 128, 64, 1, 4, 1, 8, 2>::launch(dA, dBh, dC, M, N, K);
+        else if (M <= 64 && (N % 128) == 0 && (K % 64) == 0)
+          CH<32, 128, 64, 2, 4, 1, 8, 2>::launch(dA, dBh, dC, M, N, K);
+        else if (M <= 256 && (N % 128) == 0 && (K % 64) == 0)
+          CH<64, 128, 64, 2, 4, 2, 8, 2>::launch(dA, dBh, dC, M, N, K);
+        else if ((N % 256) == 0)
+          CH<128, 256, 32, 2, 4, 2, 8, 1>::launch(dA, dBh, dC, M, N, K);
+        else
+          CH<128, 128, 32, 2, 2, 2, 8, 2>::launch(dA, dBh, dC, M, N, K);
       };
       CK(cudaMemset(dC, 0x7f, (size_t)M * N * 2)); f16(); CK(cudaDeviceSynchronize());
       const double rel16 = rel_l2(dC, dR, (long)M * N);

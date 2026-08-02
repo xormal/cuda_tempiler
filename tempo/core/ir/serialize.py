@@ -29,13 +29,19 @@ def to_json(atoms, meta=None) -> str:
                 "uid": a.uid,
                 "kind": a.kind.value if isinstance(a.kind, AtomKind) else str(a.kind),
                 "op_id": a.op_id,
-                "footprint": {k: round(float(v), 6) for k, v in sorted(a.footprint.items())},
+                "footprint": {
+                    k: round(float(v), 6) for k, v in sorted(a.footprint.items())
+                },
                 "latency": round(float(a.latency), 6),
                 "token": a.token,
                 "region": a.region,
                 "deps": [
-                    {"src": d.src_uid, "type": d.type, "distance": d.distance,
-                     "min_gap": round(float(d.min_gap), 6)}
+                    {
+                        "src": d.src_uid,
+                        "type": d.type,
+                        "distance": d.distance,
+                        "min_gap": round(float(d.min_gap), 6),
+                    }
                     for d in a.deps
                 ],
             }
@@ -60,7 +66,9 @@ def from_json(text: str):
                 latency=a["latency"],
                 token=a.get("token"),
                 deps=tuple(
-                    Dep(d["src"], d["type"], d.get("distance", 0), d.get("min_gap", 0.0))
+                    Dep(
+                        d["src"], d["type"], d.get("distance", 0), d.get("min_gap", 0.0)
+                    )
                     for d in a.get("deps", ())
                 ),
                 region=a.get("region", "body"),
@@ -79,4 +87,8 @@ def diff(a, b) -> list:
 
     la, lb = channel_load(a), channel_load(b)
     keys = sorted(set(la) | set(lb))
-    return [(k, la.get(k, 0.0), lb.get(k, 0.0)) for k in keys if abs(la.get(k, 0.0) - lb.get(k, 0.0)) > 1e-9]
+    return [
+        (k, la.get(k, 0.0), lb.get(k, 0.0))
+        for k in keys
+        if abs(la.get(k, 0.0) - lb.get(k, 0.0)) > 1e-9
+    ]

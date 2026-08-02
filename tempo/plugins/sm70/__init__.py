@@ -88,12 +88,47 @@ class Sm70Plugin:
         # 1. Ставки и их происхождение
         syms = M.symbols()
         r.check("таблица ставок непуста", len(syms) > 0, "%d символов" % len(syms))
-        bad = [s.symbol for s in syms.values() if s.status == "MEASURED" and (
-            s.prov is None or s.prov.card is None or s.prov.card.foreign_procs != 0)]
-        r.check("каждая MEASURED несёт карту и 0 чужих процессов", not bad, ", ".join(bad[:3]))
-        r.check("SPEC-паспорт HBM объявлен и ОТЛИЧАЕТСЯ от замера",
-                M.peak("hbm_spec").value == 900.0 and M.peak("hbm_copy").value == 819.0,
-                "900 паспорт против 819 замер")
+        bad = [
+            s.symbol
+            for s in syms.values()
+            if s.status == "MEASURED"
+            and (
+                s.prov is None or s.prov.card is None or s.prov.card.foreign_procs != 0
+            )
+        ]
+        r.check(
+            "каждая MEASURED несёт карту и 0 чужих процессов",
+            not bad,
+            ", ".join(bad[:3]),
+        )
+        r.check(
+            "SPEC-паспорт HBM объявлен и ОТЛИЧАЕТСЯ от замера",
+            M.peak("hbm_spec").value == 900.0 and M.peak("hbm_copy").value == 819.0,
+            "900 паспорт против 819 замер",
+        )
+
+        # 1-бис. ТРИ РЕЖИМА ПОЛОСЫ, а не одно число (LAW=L-BW-THREE-MODES, задача 118).
+        # Лечение расхождения 878/841 -- НЕ замена одного другим, а ТРЕТИЙ символ со своим
+        # режимом: доля полосы, у которой не назван режим, ошибается на 4.4 % молча.
+        modes = ("hbm_read_pure", "hbm_read", "hbm_copy")
+        vals = [M.peak(k).value for k in modes]
+        r.check(
+            "полоса объявлена ТРЕМЯ режимами, а не одним числом",
+            vals == [878.0, 841.0, 819.0],
+            "чтение/сумма/копия = %s" % vals,
+        )
+        r.check("режимы РАЗЛИЧНЫ (иначе символы лишние)", len(set(vals)) == 3)
+        r.check(
+            "у КАЖДОГО режима в записи назван ОБРАЗЕЦ ДОСТУПА",
+            all("РЕЖИМ:" in M.peak(k).note for k in modes),
+            "число полосы без режима -- не число",
+        )
+        r.check(
+            "разница чистого чтения и суммирования = 4.4 %",
+            abs((878.0 / 841.0 - 1.0) * 100 - 4.4) < 0.05,
+            "%.2f %% входит во ВСЕ доли, посчитанные против 841"
+            % ((878.0 / 841.0 - 1) * 100),
+        )
 
         # 2. Закрытая таблица отказывает, а не подставляет умолчание (гейт G4)
         from ..base import UnknownSymbol
@@ -114,38 +149,66 @@ class Sm70Plugin:
 
         # 4. Волна -- 80 SM, а не 64/128
         occ = R.occupancy(regs=128, smem_bytes=32768, threads=256)
-        r.check("волна кратна числу SM (80)", R.wave_quantum(occ) % 80 == 0,
-                "квант = %d" % R.wave_quantum(occ))
+        r.check(
+            "волна кратна числу SM (80)",
+            R.wave_quantum(occ) % 80 == 0,
+            "квант = %d" % R.wave_quantum(occ),
+        )
 
         # 5. Закон MIO: три предела
         wf_bcast = self.memory.wavefronts([0] * 32, width_bytes=16)
-        r.check("LDS.128 при ПОЛНОЙ рассылке = 2 вайвфронта (пол ширина/8)",
-                abs(wf_bcast.wavefronts - 2.0) < 1e-9, "ncu: 2.000")
+        r.check(
+            "LDS.128 при ПОЛНОЙ рассылке = 2 вайвфронта (пол ширина/8)",
+            abs(wf_bcast.wavefronts - 2.0) < 1e-9,
+            "ncu: 2.000",
+        )
         wf_stride32 = self.memory.wavefronts([l * 8 for l in range(32)], width_bytes=4)
-        r.check("шаг 32 Б, LDS.32 = 8 вайвфронтов",
-                abs(wf_stride32.wavefronts - 8.0) < 1e-9, "ncu: 8.000")
+        r.check(
+            "шаг 32 Б, LDS.32 = 8 вайвфронтов",
+            abs(wf_stride32.wavefronts - 8.0) < 1e-9,
+            "ncu: 8.000",
+        )
         wf_pad = self.memory.wavefronts([l * 33 for l in range(32)], width_bytes=4)
-        r.check("шаг 132 Б (дополнение на слово) = 1 вайвфронт",
-                abs(wf_pad.wavefronts - 1.0) < 1e-9, "ncu: 1.000")
+        r.check(
+            "шаг 132 Б (дополнение на слово) = 1 вайвфронт",
+            abs(wf_pad.wavefronts - 1.0) < 1e-9,
+            "ncu: 1.000",
+        )
 
         # 6. Тензорный узел: закон плитки ВЫВОДИТСЯ из карты фрагмента
         op = T.select(("fp16", "fp16"), "fp32")
-        r.check("накопитель плитки 16x16 = 8 float/поток (выведено из карты)",
-                acc_regs_per_thread((16, 16), op) == 8)
-        r.check("накопитель плитки 64x64 = 128 float/поток",
-                acc_regs_per_thread((64, 64), op) == 128)
-        r.check("загрузок-на-mma при 32x32 = 1.00",
-                abs(operand_loads_per_mma((32, 32), op) - 1.0) < 1e-9)
-        r.check("загрузок-на-mma при 64x64 = 0.50",
-                abs(operand_loads_per_mma((64, 64), op) - 0.5) < 1e-9)
+        r.check(
+            "накопитель плитки 16x16 = 8 float/поток (выведено из карты)",
+            acc_regs_per_thread((16, 16), op) == 8,
+        )
+        r.check(
+            "накопитель плитки 64x64 = 128 float/поток",
+            acc_regs_per_thread((64, 64), op) == 128,
+        )
+        r.check(
+            "загрузок-на-mma при 32x32 = 1.00",
+            abs(operand_loads_per_mma((32, 32), op) - 1.0) < 1e-9,
+        )
+        r.check(
+            "загрузок-на-mma при 64x64 = 0.50",
+            abs(operand_loads_per_mma((64, 64), op) - 0.5) < 1e-9,
+        )
         r.check("домен точности объявлен", op.exact_while == "|sum| < 2**24")
         from .tensor import a_value_fanout, bijection_ok
 
-        r.check("карта накопителя -- БИЕКЦИЯ на 16x16 (покрытие, а не значения)", bijection_ok())
-        r.check("значение A попадает РОВНО в две полосы (трафик Q неустраним)",
-                a_value_fanout() == 2)
-        r.check("две единицы команды НАЗВАНЫ порознь: квадропара 2.00, варповая 8.00",
-                abs(M.rate("CAP.TENSOR").value - 2.0) < 1e-9 and abs(op.cost.value - 8.0) < 1e-9)
+        r.check(
+            "карта накопителя -- БИЕКЦИЯ на 16x16 (покрытие, а не значения)",
+            bijection_ok(),
+        )
+        r.check(
+            "значение A попадает РОВНО в две полосы (трафик Q неустраним)",
+            a_value_fanout() == 2,
+        )
+        r.check(
+            "две единицы команды НАЗВАНЫ порознь: квадропара 2.00, варповая 8.00",
+            abs(M.rate("CAP.TENSOR").value - 2.0) < 1e-9
+            and abs(op.cost.value - 8.0) < 1e-9,
+        )
 
         # 7. Отсутствующее у Volta отказывает СТРУКТУРНО, а не падает
         from ..base import PluginCapabilityError
@@ -163,7 +226,10 @@ class Sm70Plugin:
 
         # 8. Волтовское допущение объявлено ДАННЫМИ (иначе G8 нечего фальсифицировать)
         tx = self.sync.transactions()[0]
-        r.check("подача gmem->smem объявлена съедающей регистры", tx.consumes_registers is True)
+        r.check(
+            "подача gmem->smem объявлена съедающей регистры",
+            tx.consumes_registers is True,
+        )
         r.check("ожидание объявлено НЕЯВНЫМ (табло, cp.async нет)", tx.wait_op is None)
 
         # 9. Скелеты и оси
@@ -179,8 +245,132 @@ class Sm70Plugin:
         r.check("вердикт WALL_REG", v_wall.code == "WALL_REG", v_wall.explain)
         r.check("вердикт WALL_SMEM", v_smem.code == "WALL_SMEM", v_smem.explain)
 
+        # 11-бис. ЗАКОНЫ ФОРМЫ: что связывает при данном M и до скольких бит сжимать вес.
+        # LAW=L-MRIDGE-128, LAW=L-BIT-FLOOR, LAW=L-NARROW-0644.  Каждая проверка ПАДАЕТ, если
+        # закон убрать: это и есть разница между законом и комментарием.
+        from . import shape_law as SL
+        from ..base import PluginCapabilityError as _PCE
+
+        v32 = SL.binding("gate,up", 32)
+        v4096 = SL.binding("gate,up", 4096)
+        r.check(
+            "при M=32 у gate,up связывает ПОЛОСА (86.0 % против 24.5 % счёта)",
+            v32.kind == "ПОЛОСА" and abs(v32.bw - 0.860) < 1e-9,
+            v32.explain[:96],
+        )
+        r.check(
+            "при M=4096 у той же формы связывает СЧЁТ (96.1 % против 6.1 %)",
+            v4096.kind == "СЧЁТ" and abs(v4096.comp - 0.961) < 1e-9,
+            v4096.explain[:96],
+        )
+        # ПЕРЕЛОМ -- СВОЙСТВО НАБОРА ФОРМ, А НЕ ОТДЕЛЬНОЙ: у k,v доли сравнялись уже при 128.
+        r.check("перелом объявлен на M=128", SL.ridge_m() == 128)
+        r.check(
+            "у k,v при M=128 модель МОЛЧИТ (40.4 против 42.4 -- внутри разрешения)",
+            SL.binding("k,v", 128).kind == "МОЛЧИТ",
+            "перелом есть свойство НАБОРА форм; на отдельной он сдвинут",
+        )
+
+        own, cal, crude, _e = SL.bit_floor("gate,up", 64, chain_ops=0.0)
+        r.check(
+            "дно gate,up при M=64 -- 8.03 бита (int8 УЖЕ на дне)",
+            abs(own - 8.03) < 1e-9,
+        )
+        r.check(
+            "дно k,v при M=64 вдвое ниже -- своя строка, а не строка gate,up",
+            abs(SL.bit_floor("k,v", 64)[0] - 4.60) < 1e-9,
+            "для ОДНОЙ матрицы берётся ЕЁ строка",
+        )
+        r.check(
+            "ДВА наклона дна названы ОБА и расходятся на 16 %",
+            abs(cal - 0.1236 * 64) < 1e-9
+            and abs(crude - 0.144 * 64) < 1e-9
+            and abs((crude / cal - 1) * 100 - 16.4) < 0.2,
+            "модель выдачи %.2f против грубой крыши %.2f бита" % (cal, crude),
+        )
+
+        ok32, ratio32, _ = SL.narrow_ok("gate,up", 32)
+        ok4096, ratio4096, _ = SL.narrow_ok("gate,up", 4096)
+        r.check(
+            "узкий формат ПРИМЕНИМ там, где связывает полоса (порог 0.644)",
+            ok32 is True and ratio32 < 0.644,
+            "счёт/полоса = %.3f" % ratio32,
+        )
+        r.check(
+            "узкий формат ПЛАТИТ ВРЕМЕНЕМ там, где связывает счёт",
+            ok4096 is False and ratio4096 > 0.644,
+            "счёт/полоса = %.2f" % ratio4096,
+        )
+        r.check(
+            "на форме, где модель молчит, вердикта о формате НЕТ",
+            SL.narrow_ok("k,v", 128)[0] is None,
+            "отказ, а не осторожность: неназванный связывающий ресурс = нет ответа",
+        )
+
+        # ОБЛАСТЬ ДЕЙСТВИЯ -- ЧАСТЬ ЗАКОНА.  Оба нарушения обязаны быть ОТКАЗОМ, а не числом.
+        for what, fn in (
+            ("незамеренная форма", lambda: SL.binding("mlp_gigantic", 32)),
+            ("M вне размаха замеров", lambda: SL.binding("gate,up", 8)),
+        ):
+            try:
+                fn()
+                r.check(
+                    "ОБЛАСТЬ: %s -> отказ" % what, False, "выдано число вместо отказа"
+                )
+            except _PCE:
+                r.check("ОБЛАСТЬ: %s -> отказ" % what, True)
+        v_i = SL.binding("gate,up", 48)
+        r.check(
+            "между замеренными точками ИНТЕРПОЛЯЦИЯ названа вслух",
+            (not v_i.exact) and "ИНТЕРПОЛИРОВАНЫ" in v_i.explain,
+        )
+
+        # 11-трис. СТАВКА SFU НЕ ПЕРЕНОСИТСЯ НА КОНВЕРСИИ (LAW=L-SFU-RATE-IS-MUFU).
+        # Проверка ПАДАЕТ, если кто-нибудь отнесёт конверсию к дефицитному каналу: это ровно
+        # тот перенос замеренной величины с одного объекта на другой, который уже стоил
+        # предсказания >= +50 % там, где замерено +32.3 %.
+        C = self.classifier
+        r.check(
+            "трансцендентная идёт по дефицитному каналу со ставкой 8.00",
+            C.classify("MUFU.EX2 R0, R1 ;").channel == "SFU"
+            and abs(C.classify("MUFU.EX2 R0, R1 ;").cycles - 8.0) < 1e-9,
+        )
+        conv = [
+            C.classify("%s.F32.S32 R0, R1 ;" % op)
+            for op in ("I2F", "F2F", "F2I", "I2I")
+        ]
+        r.check(
+            "КОНВЕРСИИ по дефицитному каналу НЕ идут (перенос ставки отвергнут)",
+            all(c.channel != "SFU" for c in conv),
+            "иначе модель нарушила бы собственный замер +32.3 %",
+        )
+        r.check(
+            "у конверсий та же ставка, что во второй модели дерева (класс плавающих)",
+            all(abs(c.cycles - 2.0) < 1e-9 for c in conv),
+            "прежде они падали в умолчание 1.00 -- вдвое дешевле, чем у стенда",
+        )
+        # КАНАЛ -- КЛЮЧ ТАБЛИЦЫ КАНАЛОВ, А НЕ КЛАСС РАЗБОРЩИКА. Прежняя редакция клала сюда
+        # класс («плавающие», «тензорные»), которого в таблице НЕТ ни одного: потребитель
+        # получил бы промах и списал бы команду в никуда -- молча, потому что `classify` пока
+        # никем не вызывается. Проверка ловит ЛАТЕНТНЫЙ тихо неверный вердикт.
+        probes = (
+            "HMMA.884.F32.F32 R0, R1, R2, R3 ;",
+            "LDS.128 R0, [R1] ;",
+            "MUFU.EX2 R0, R1 ;",
+            "I2F.F32.S32 R0, R1 ;",
+            "FFMA R0, R1, R2, R3 ;",
+        )
+        chans = {C.classify(t).channel for t in probes}
+        r.check(
+            "канал классификатора -- КЛЮЧ таблицы каналов, а не класс разборщика",
+            chans <= set(M.channels()),
+            "получено %s" % sorted(chans),
+        )
+
         # 11. Честность
-        r.check("перечень заглушек непуст (иначе он врёт)", len(self.declared_stubs()) >= 5)
+        r.check(
+            "перечень заглушек непуст (иначе он врёт)", len(self.declared_stubs()) >= 5
+        )
         return r
 
 

@@ -10,6 +10,7 @@
 
   python3 bench/tempolate_gemm.py --shape 3840:15360 --m 2048 --top 48
 """
+
 import argparse, json, os, re, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -40,12 +41,25 @@ def enumerate_space(bn_ok, wide=False):
                             continue
                         for ST in (2, 3, 4):
                             for GS in (1, 2):
-                                for FP in ((1, 2) if wide else (1, 2)):
-                                    for GR in ((1, 4, 8, 16) if wide else (8,)):
+                                for FP in (1, 2) if wide else (1, 2):
+                                    for GR in (1, 4, 8, 16) if wide else (8,):
                                         for EP in (0, 1):
                                             nw = WM * WN
                                             minb = 2 if nw <= 4 else 1
-                                            h = Hyperform(BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, True, minb)
+                                            h = Hyperform(
+                                                BM,
+                                                BN,
+                                                BK,
+                                                WM,
+                                                WN,
+                                                ST,
+                                                GS,
+                                                FP,
+                                                GR,
+                                                EP,
+                                                True,
+                                                minb,
+                                            )
                                             if h.legal() is None:
                                                 out.append(h)
     return out
@@ -82,7 +96,8 @@ def prune(cands, M, N, K, top, per_geom=3):
         progressed = False
         for _, lst in ranked:
             if r < len(lst) and len(out) < top:
-                out.append(lst[r]); progressed = True
+                out.append(lst[r])
+                progressed = True
         if not progressed:
             break
         r += 1
@@ -98,24 +113,43 @@ def build(cands, out_bin, extra=""):
         f.write("// ПОРОЖДЕНО tempolate_gemm.py -- не править руками\n")
         for _, h, _, _ in cands:
             f.write(h.cfg_line() + "\n")
-    cmd = ("%s -O3 -std=c++17 -arch=sm_70 -lcublas -Xptxas -v -I%s -o %s %s %s"
-           % (NVCC, SKEL, out_bin, os.path.join(SKEL, "harness.cu"), extra))
+    cmd = "%s -O3 -std=c++17 -arch=sm_70 -lcublas -Xptxas -v -I%s -o %s %s %s" % (
+        NVCC,
+        SKEL,
+        out_bin,
+        os.path.join(SKEL, "harness.cu"),
+        extra,
+    )
     t0 = time.time()
     p = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if p.returncode:
-        print(p.stdout[-4000:]); print(p.stderr[-8000:]); raise SystemExit("СБОРКА НЕ ПРОШЛА")
+        print(p.stdout[-4000:])
+        print(p.stderr[-8000:])
+        raise SystemExit("СБОРКА НЕ ПРОШЛА")
     return time.time() - t0, p.stderr
 
 
 # ------------------------------------------------------------------ P7..P9
 def run(out_bin, shape, ms, rounds, dev):
     env = dict(os.environ)
-    env["LD_LIBRARY_PATH"] = os.path.join(CUDA_HOME, "lib") + ":" + env.get("LD_LIBRARY_PATH", "")
+    env["LD_LIBRARY_PATH"] = (
+        os.path.join(CUDA_HOME, "lib") + ":" + env.get("LD_LIBRARY_PATH", "")
+    )
     env["CUDA_VISIBLE_DEVICES"] = str(dev)
-    cmd = [out_bin, "--rounds", str(rounds), "--shape", "%d:%d" % shape, "--m", ",".join(map(str, ms))]
+    cmd = [
+        out_bin,
+        "--rounds",
+        str(rounds),
+        "--shape",
+        "%d:%d" % shape,
+        "--m",
+        ",".join(map(str, ms)),
+    ]
     p = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if p.returncode:
-        print(p.stdout[-4000:]); print(p.stderr[-4000:]); raise SystemExit("ПРОГОН НЕ ПРОШЁЛ")
+        print(p.stdout[-4000:])
+        print(p.stderr[-4000:])
+        raise SystemExit("ПРОГОН НЕ ПРОШЁЛ")
     return p.stdout
 
 
@@ -123,7 +157,8 @@ def parse(txt):
     build_, base, cand, fails = {}, [], [], []
     for line in txt.splitlines():
         if line.startswith("BUILD "):
-            d = json.loads(line[6:]); build_[d["tag"]] = d
+            d = json.loads(line[6:])
+            build_[d["tag"]] = d
         elif line.startswith("BASE "):
             base.append(json.loads(line[5:]))
         elif line.startswith("CAND "):
@@ -152,8 +187,10 @@ def main():
     top = prune(space, ms[0], N, K, a.top)
     print("пространство: %d законных, отобрано %d" % (len(space), len(top)))
     for b, h, w, c in top[:12]:
-        print("   %-38s nu_mio=%.3f  граница=%6.1f ТФЛОП/с  рег~%3d  варпов/SM=%2d  блоков/SM=%d  smem=%d"
-              % (h.tag(), h.nu_mio(), b, h.regs_estimate(), w, c, h.smem))
+        print(
+            "   %-38s nu_mio=%.3f  граница=%6.1f ТФЛОП/с  рег~%3d  варпов/SM=%2d  блоков/SM=%d  smem=%d"
+            % (h.tag(), h.nu_mio(), b, h.regs_estimate(), w, c, h.smem)
+        )
 
     binp = os.path.join(a.out, "harness")
     dt, log = build(top, binp)
@@ -163,20 +200,56 @@ def main():
     for f in fails:
         print("ГЕЙТ НЕ ПРОЙДЕН:", f)
     for b in base:
-        print("\ncuBLAS  K=%d N=%d M=%d: %.4f мс = %.2f ТФЛОП/с (сверка эталона третьим путём rel=%.1e)"
-              % (b["K"], b["N"], b["M"], b["cublas_ms"], b["cublas_tflops"], b["cublas_spot_rel"]))
-        rows = [c for c in cand if c["M"] == b["M"] and c["N"] == b["N"] and c["K"] == b["K"]]
+        print(
+            "\ncuBLAS  K=%d N=%d M=%d: %.4f мс = %.2f ТФЛОП/с (сверка эталона третьим путём rel=%.1e)"
+            % (
+                b["K"],
+                b["N"],
+                b["M"],
+                b["cublas_ms"],
+                b["cublas_tflops"],
+                b["cublas_spot_rel"],
+            )
+        )
+        rows = [
+            c
+            for c in cand
+            if c["M"] == b["M"] and c["N"] == b["N"] and c["K"] == b["K"]
+        ]
         rows.sort(key=lambda c: -c["ratio_med"])
-        print("  %-38s %8s %8s %8s %7s %6s %5s %s" % ("гиперформа", "мс", "ТФЛОП/с", "xcuBLAS", "рег", "кадр", "smem", "relL2"))
+        print(
+            "  %-38s %8s %8s %8s %7s %6s %5s %s"
+            % ("гиперформа", "мс", "ТФЛОП/с", "xcuBLAS", "рег", "кадр", "smem", "relL2")
+        )
         for c in rows[:24]:
             bi = bmap.get(c["tag"], {})
-            print("  %-38s %8.4f %8.2f %8.4f %7d %6d %5d %.1e"
-                  % (c["tag"], c["ms"], c["tflops"], c["ratio_med"], bi.get("regs", -1),
-                     bi.get("frame", -1), bi.get("smem", -1), c["rel"]))
+            print(
+                "  %-38s %8.4f %8.2f %8.4f %7d %6d %5d %.1e"
+                % (
+                    c["tag"],
+                    c["ms"],
+                    c["tflops"],
+                    c["ratio_med"],
+                    bi.get("regs", -1),
+                    bi.get("frame", -1),
+                    bi.get("smem", -1),
+                    c["rel"],
+                )
+            )
     if a.json:
         with open(a.json, "w") as f:
-            json.dump({"build": bmap, "base": base, "cand": cand, "fail": fails,
-                       "space": len(space), "picked": len(top)}, f, indent=1)
+            json.dump(
+                {
+                    "build": bmap,
+                    "base": base,
+                    "cand": cand,
+                    "fail": fails,
+                    "space": len(space),
+                    "picked": len(top),
+                },
+                f,
+                indent=1,
+            )
         print("\nсохранено:", a.json)
 
 

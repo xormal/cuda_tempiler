@@ -34,7 +34,11 @@
 #include "volta_hmma.h"
 
 #define NAIVE_GEMM_AS_HEADER 1
-#include "../inputs/naive_gemm_fp16.cu"
+// НЕДОДЕЛАННЫЙ ХВОСТ ПЕРЕНОСА: наивный вход переехал в kernels/naive/, а эта строка осталась
+// указывать на inputs/, которого в дереве НЕТ. Следствие было дороже опечатки: этот бинарь
+// даёт колонки «было» и «xвход», то есть медиану x102 из README.md и report.md ПОЛУЧИТЬ ИЗ
+// ДЕРЕВА БЫЛО НЕЛЬЗЯ -- он не собирался вовсе.
+#include "../kernels/naive/gemm_fp16.cu"
 
 using namespace fa2_sm70;
 #define CK(x) do { cudaError_t e=(x); if(e){printf("CUDA %s @%d: %s\n",#x,__LINE__,cudaGetErrorString(e));exit(1);} } while(0)

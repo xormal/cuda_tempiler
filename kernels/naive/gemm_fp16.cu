@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: LicenseRef-TRL-1.0
+// Copyright (c) 2026 Alexander Romanov <alex.xorm@gmail.com>
+// Tempo Research License v1.0 -- see LICENSE. Commercial use by agreement.
 // ОБРАЗЕЦ ВХОДА ТЕМПОЛЯТОРА №1: плотное fp16-умножение, написанное прямо.
 //
 // Это НЕ бенчмарк и НЕ кандидат. Это НИЖНЯЯ ОТМЕТКА -- то, что подаётся на вход компилятору

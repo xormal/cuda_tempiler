@@ -41,25 +41,42 @@ def _env_module():
 
 # (имя, аргументы, нужен ли интерпретатор >= 3.12, нужна ли карта, якорь в выводе)
 CASES = [
-    ("tempo/cli/env.py",         ["--selftest"], False, False, "ИТОГ: 8/8"),
-    ("tools/timeit.py",          ["--selftest"], False, False, None),
-    ("tools/calib.py",           ["selftest"],   False, False, None),
-    ("tools/bankform.py",        ["selftest"],   False, False, None),
-    ("tools/cc_ab.py",           ["selftest"],   False, False, None),
-    ("tools/padsweep.py",        ["selftest"],   False, False, None),
-    ("tools/bits_table.py",      ["selftest"],   False, False, None),
-    ("tools/smem_lint.py",       ["--selftest"], False, False, "закон ОК"),
-    ("tools/residency.py",       ["--selftest"], True,  False, None),
-    ("tempo/core/graph/flows.py",      [],       False, False, None),
-    ("tempo/core/graph/graphs.py",     [],       False, False, None),
-    ("tempo/core/graph/partitions.py", [],       False, False, None),
+    ("tempo/cli/env.py", ["--selftest"], False, False, "ИТОГ: 8/8"),
+    ("tools/timeit.py", ["--selftest"], False, False, None),
+    ("tools/calib.py", ["selftest"], False, False, None),
+    ("tools/bankform.py", ["selftest"], False, False, None),
+    ("tools/relayout.py", ["--selftest"], False, False, "упало 0"),
+    ("tools/cc_ab.py", ["selftest"], False, False, None),
+    ("tools/padsweep.py", ["selftest"], False, False, None),
+    ("tools/bits_table.py", ["selftest"], False, False, None),
+    ("tools/smem_lint.py", ["--selftest"], False, False, "закон ОК"),
+    ("tools/laws_from_reports.py", ["--selftest"], False, False, "упало 0"),
+    ("tools/phaseprof.py", ["selftest"], False, False, "упало 0"),
+    ("tools/residency.py", ["--selftest"], True, False, None),
+    ("tempo/core/graph/flows.py", [], False, False, None),
+    ("tempo/core/graph/graphs.py", [], False, False, None),
+    ("tempo/core/graph/partitions.py", [], False, False, None),
 ]
 
 # Требуют СВОБОДНОЙ КАРТЫ и (часть) прав на прибор. В обычном прогоне пропускаются с явной
 # отметкой: молча пропущенная проверка -- это ложное «зелено».
+# ЗАПИСЬ О ПОСЛЕДНЕМ ПРОГОНЕ (2026-08-02, карта 1 свободна, 0 чужих процессов):
+#   tools/ncu.py --selftest  -> ЯКОРЬ ВОСПРОИЗВЕДЁН: вайвфронты +0.143 %, конфликты +0.294 %,
+#       доля 0.346 против ожидавшихся 0.346 (+0.135 %). До этого якорь НЕ ЗАПУСКАЛСЯ ВОВСЕ --
+#       за отказом на путях прятались ЕЩЁ ДВА дефекта (путь тела и затенение станд. модуля).
+#   tools/tempo.py --selftest -> 643 точки, НАРУШЕНИЙ ГРАНИЦЫ (безопасная ставка) 0 из 643.
+#       Требует собранного стенда: nvcc -arch=sm_70 -O3 -o build/probe tools/probe.cu
 CARD_CASES = [
-    ("tools/ncu.py", ["--selftest"], "якорь прибора: собирает расширение боевого дерева и меряет"),
-    ("tools/tempo.py", ["--selftest"], "643 точки стенда; требует собранного build/probe"),
+    (
+        "tools/ncu.py",
+        ["--selftest"],
+        "якорь прибора: собирает расширение боевого дерева, нужны права на профилировщик",
+    ),
+    (
+        "tools/tempo.py",
+        ["--selftest"],
+        "643 точки стенда; требует собранного build/probe (карта нужна только для пересъёма)",
+    ),
 ]
 
 
@@ -67,20 +84,31 @@ def run(rel, args, py):
     path = os.path.join(ROOT, rel)
     if not os.path.exists(path):
         return None, "файла нет"
-    p = subprocess.run([py, path] + args, capture_output=True, text=True, cwd=ROOT, timeout=1800)
+    p = subprocess.run(
+        [py, path] + args, capture_output=True, text=True, cwd=ROOT, timeout=1800
+    )
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--quick", action="store_true", help="без тяжёлых (calib, padsweep, cc_ab)")
-    ap.add_argument("--with-card", action="store_true", help="гонять и то, что требует карты")
+    ap.add_argument(
+        "--quick", action="store_true", help="без тяжёлых (calib, padsweep, cc_ab)"
+    )
+    ap.add_argument(
+        "--with-card", action="store_true", help="гонять и то, что требует карты"
+    )
     a = ap.parse_args()
 
     env = _env_module()
     py = env.python_vllm() or sys.executable
     py312 = env.python_312() or py
-    heavy = {"tools/calib.py", "tools/padsweep.py", "tools/cc_ab.py", "tools/bits_table.py"}
+    heavy = {
+        "tools/calib.py",
+        "tools/padsweep.py",
+        "tools/cc_ab.py",
+        "tools/bits_table.py",
+    }
 
     print("САМОПРОВЕРКИ ИНСТРУМЕНТОВ (фальсификатор миграции)")
     print("  интерпретатор:      %s" % py)
@@ -98,8 +126,15 @@ def main():
             bad += 1
             continue
         good = rc == 0 and (anchor is None or anchor in out)
-        print("  %-8s %-34s rc=%s%s" % ("ПРОЙДЕН" if good else "ПАДЁТ", rel, rc,
-                                        "" if anchor is None else ("  якорь %r" % anchor)))
+        print(
+            "  %-8s %-34s rc=%s%s"
+            % (
+                "ПРОЙДЕН" if good else "ПАДЁТ",
+                rel,
+                rc,
+                "" if anchor is None else ("  якорь %r" % anchor),
+            )
+        )
         if good:
             ok += 1
         else:
@@ -125,7 +160,9 @@ def main():
     print()
     print("ИТОГ: пройдено %d, упало %d, пропущено %d" % (ok, bad, skipped))
     if skipped:
-        print("  ПРОПУЩЕННОЕ НЕ СЧИТАЕТСЯ ПРОЙДЕННЫМ. Пропуск напечатан с причиной намеренно.")
+        print(
+            "  ПРОПУЩЕННОЕ НЕ СЧИТАЕТСЯ ПРОЙДЕННЫМ. Пропуск напечатан с причиной намеренно."
+        )
     return 0 if bad == 0 else 1
 
 

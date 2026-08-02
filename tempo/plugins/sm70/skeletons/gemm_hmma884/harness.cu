@@ -104,11 +104,12 @@ struct Timer {
 
 // ------------------------------------------------------------------ обёртка гиперформы
 template <int BM, int BN, int BK, int WM, int WN, int STAGES, int GSTAGE, int FPREF,
-          int GROUP, int EPI, int SWZ, bool PRED, int MINB>
+          int GROUP, int EPI, int SWZ, bool PRED, int MINB, int STSW = 0, int ADDR = 0,
+          int LDR = 0, int KSTEPS = 1>
 struct Cfg {
   static constexpr int smem = SmemBytes<BM, BN, BK, WM, WN, STAGES, EPI>::value;
   static void launch(const __half* A, const __half* B, __half* C, int M, int N, int K) {
-    auto kern = k_gemm<BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB>;
+    auto kern = k_gemm<BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB, STSW, ADDR, LDR, KSTEPS>;
     static bool once = false;
     if (!once) { CK(cudaFuncSetAttribute(kern, cudaFuncAttributeMaxDynamicSharedMemorySize, smem)); once = true; }
     const int nm = PRED ? (M + BM - 1) / BM : M / BM;
@@ -119,12 +120,12 @@ struct Cfg {
   }
   static int regs() {
     cudaFuncAttributes at;
-    cudaFuncGetAttributes(&at, k_gemm<BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB>);
+    cudaFuncGetAttributes(&at, k_gemm<BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB, STSW, ADDR, LDR, KSTEPS>);
     return at.numRegs;
   }
   static int frame() {
     cudaFuncAttributes at;
-    cudaFuncGetAttributes(&at, k_gemm<BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB>);
+    cudaFuncGetAttributes(&at, k_gemm<BM, BN, BK, WM, WN, STAGES, GSTAGE, FPREF, GROUP, EPI, SWZ, PRED, MINB, STSW, ADDR, LDR, KSTEPS>);
     return (int)at.localSizeBytes;
   }
 };
@@ -138,12 +139,19 @@ struct Arm {
   int smem;
 };
 
+#define CFG3(tag, BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, SD, AD, LD, KS)      \
+  Arm{tag, &Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, SD, AD, LD, KS>::ok,    \
+      &Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, SD, AD, LD, KS>::launch,     \
+      &Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, SD, AD, LD, KS>::regs,       \
+      &Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, SD, AD, LD, KS>::frame,      \
+      Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, SD, AD, LD, KS>::smem}
+// Умолчание КАЖДОЙ новой оси -- ПРЕЖНЕЕ ПОВЕДЕНИЕ, поэтому старые configs.inc собираются без
+// правки: CFG -> CFG2(...,0,0,0) -> CFG3(...,0,0,0,1). Ось, у которой умолчание не «как было»,
+// перестаёт быть осью и становится правкой поведения.
+#define CFG2(tag, BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, SD, AD, LD)          \
+  CFG3(tag, BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, SD, AD, LD, 1)
 #define CFG(tag, BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB)                    \
-  Arm{tag, &Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB>::ok,                \
-      &Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB>::launch,                 \
-      &Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB>::regs,                   \
-      &Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB>::frame,                  \
-      Cfg<BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB>::smem}
+  CFG2(tag, BM, BN, BK, WM, WN, ST, GS, FP, GR, EP, SW, PR, MB, 0, 0, 0)
 
 static const Arm kArms[] = {
 #include "configs.inc"

@@ -119,13 +119,17 @@ def test_g2_null_plugin():
     from tempo.plugins.base import OpSpec, PluginCapabilityError
 
     p = registry.load("null")
-    op = OpSpec("gemm", "fp16", "fp16", "fp16", "fp32", "k", "k", "n", {"M": 8, "N": 8, "K": 8})
+    op = OpSpec(
+        "gemm", "fp16", "fp16", "fp16", "fp32", "k", "k", "n", {"M": 8, "N": 8, "K": 8}
+    )
     try:
         list(p.skeletons.variants(op))
     except PluginCapabilityError:
         pass
     except Exception as e:
-        raise AssertionError("ожидался PluginCapabilityError, получен %s: %s" % (type(e).__name__, e))
+        raise AssertionError(
+            "ожидался PluginCapabilityError, получен %s: %s" % (type(e).__name__, e)
+        )
     else:
         raise AssertionError("пустой плагин не отказал вовсе")
     assert p.selftest().green, "самопроверка пустого плагина не зелена"
@@ -141,7 +145,9 @@ def test_g3_nullarch():
     from tempo.plugins.base import OpSpec
 
     p = registry.load("nullarch")
-    op = OpSpec("gemm", "q7", "q7", "q7", "w21", "k", "k", "n", {"M": 64, "N": 64, "K": 16})
+    op = OpSpec(
+        "gemm", "q7", "q7", "q7", "w21", "k", "k", "n", {"M": 64, "N": 64, "K": 16}
+    )
     hs = list(p.skeletons.variants(op))
     assert hs, "подставная архитектура не породила ни одной гиперформы"
 
@@ -156,14 +162,26 @@ def test_g3_nullarch():
 
     # РЕШЕНИЕ ОБЯЗАНО ОТЛИЧАТЬСЯ ОТ БОЕВОГО ПЛАГИНА
     real = registry.load("sm70")
-    rop = OpSpec("gemm", "fp16", "fp16", "fp16", "fp32", "k", "k", "n",
-                 {"M": 4096, "N": 15360, "K": 3840}, tol_rel_l2=1e-3)
+    rop = OpSpec(
+        "gemm",
+        "fp16",
+        "fp16",
+        "fp16",
+        "fp32",
+        "k",
+        "k",
+        "n",
+        {"M": 4096, "N": 15360, "K": 3840},
+        tol_rel_l2=1e-3,
+    )
     rhs = list(real.skeletons.variants(rop))[:12]
     rc = prune(real, rop, rhs)
     keys_null = {c.hyper.key for c in cands if c.kept}
     keys_real = {c.hyper.key for c in rc if c.kept}
     assert keys_null != keys_real, "план на подставной и на боевой архитектуре СОВПАЛ"
-    assert p.machine.channels().keys() != real.machine.channels().keys(), "каналы совпали"
+    assert p.machine.channels().keys() != real.machine.channels().keys(), (
+        "каналы совпали"
+    )
 
 
 # ============================================================================================
@@ -179,7 +197,9 @@ def test_g4_closed_table():
             p.machine.rate("CAP.DEFINITELY_NOT_A_CHANNEL")
         except UnknownSymbol:
             continue
-        raise AssertionError("%s: таблица ставок НЕ закрыта -- молча вернула умолчание" % name)
+        raise AssertionError(
+            "%s: таблица ставок НЕ закрыта -- молча вернула умолчание" % name
+        )
 
 
 # ============================================================================================
@@ -211,8 +231,12 @@ def _chk_import(mod, rel, bad):
     if mod == "subprocess" or mod.startswith("subprocess."):
         bad.append("%s: импортирует subprocess" % rel)
     if mod.startswith("tempo.plugins"):
-        if mod not in ("tempo.plugins.base",) and not mod.startswith("tempo.plugins.base"):
-            bad.append("%s: импортирует %s (можно только tempo.plugins.base)" % (rel, mod))
+        if mod not in ("tempo.plugins.base",) and not mod.startswith(
+            "tempo.plugins.base"
+        ):
+            bad.append(
+                "%s: импортирует %s (можно только tempo.plugins.base)" % (rel, mod)
+            )
 
 
 # ============================================================================================
@@ -226,8 +250,18 @@ def test_g6_perturbation():
 
     base = registry.load("sm70")
     pert = registry.load("sm70_perturbed")
-    op = OpSpec("gemm", "fp16", "fp16", "fp16", "fp32", "k", "k", "n",
-                {"M": 4096, "N": 15360, "K": 3840}, tol_rel_l2=1e-3)
+    op = OpSpec(
+        "gemm",
+        "fp16",
+        "fp16",
+        "fp16",
+        "fp32",
+        "k",
+        "k",
+        "n",
+        {"M": 4096, "N": 15360, "K": 3840},
+        tol_rel_l2=1e-3,
+    )
     h = list(base.skeletons.variants(op))[0]
     atoms = base.skeletons.estimate_atoms(op, h)
 
@@ -239,7 +273,8 @@ def test_g6_perturbation():
     got = b1.per_channel[ch]
     want = b0.per_channel[ch] / FACTOR
     assert abs(got - want) < 1e-9, (
-        "нагрузка канала %s: ожидалось %.6f (ровно /%.0f), получено %.6f" % (ch, want, FACTOR, got)
+        "нагрузка канала %s: ожидалось %.6f (ровно /%.0f), получено %.6f"
+        % (ch, want, FACTOR, got)
     )
     for name, v in b0.per_channel.items():
         if name == ch:
@@ -256,7 +291,15 @@ def test_g6_perturbation():
 # ============================================================================================
 HEADER_MARK = "SPDX-License-Identifier: LicenseRef-TRL-1.0"
 # Каталоги, которые продуктом НЕ являются (записи о замерах, чужой код, журнал).
-G7_SKIP_DIRS = ("third_party", ".git", "__pycache__", "build", "data", "profiled", "pad")
+G7_SKIP_DIRS = (
+    "third_party",
+    ".git",
+    "__pycache__",
+    "build",
+    "data",
+    "profiled",
+    "pad",
+)
 
 # ЕДИНСТВЕННЫЕ ДВА ФАЙЛА, КОТОРЫМ ПУТЬ ОКРУЖЕНИЯ РАЗРЕШЁН, И У КАЖДОГО СВОЯ ПРИЧИНА.
 # Список закрыт намеренно: он и есть определение правила «единственное место с путями».
@@ -296,13 +339,18 @@ def test_g7_license_and_paths():
                     missing.append(rel)
             if rel in G7_PATH_ALLOWED or f.endswith(RECORD_SUFFIXES):
                 continue
-            code = _strip_docs(src, None) if f.endswith(".py") else re.sub(r"#.*$", "", src, flags=re.M)
+            code = (
+                _strip_docs(src, None)
+                if f.endswith(".py")
+                else re.sub(r"#.*$", "", src, flags=re.M)
+            )
             if "/opt/conda" in code:
                 conda.append(rel)
     assert not missing, "нет лицензионной шапки:\n  " + "\n  ".join(missing)
     assert not extra, "лишняя шапка:\n  " + "\n  ".join(extra)
     assert not conda, (
-        "исполняемый путь окружения вшит мимо tempo/cli/env.py:\n  " + "\n  ".join(conda)
+        "исполняемый путь окружения вшит мимо tempo/cli/env.py:\n  "
+        + "\n  ".join(conda)
     )
 
 
@@ -321,7 +369,9 @@ def test_g8_assumption_falsifier():
     ta, tb = a.sync.transactions()[0], b.sync.transactions()[0]
     assert ta.consumes_registers is True and tb.consumes_registers is False
 
-    op = OpSpec("gemm", "q7", "q7", "q7", "w21", "k", "k", "n", {"M": 64, "N": 64, "K": 16})
+    op = OpSpec(
+        "gemm", "q7", "q7", "q7", "w21", "k", "k", "n", {"M": 64, "N": 64, "K": 16}
+    )
     hs = list(a.skeletons.variants(op))
     ra = {h.key: a.skeletons.resources_of(op, h)[0] for h in hs}
     rb = {h.key: b.skeletons.resources_of(op, h)[0] for h in hs}
@@ -343,6 +393,157 @@ def test_g8_assumption_falsifier():
 
 
 # ============================================================================================
+# РЕЕСТР ЗАКОНОВ (G9..G11).  Гейты того же рода, что G1..G8: каждый обязан ПАДАТЬ, если
+# утверждение неверно.  Проверяемое утверждение: «открытие внесено в продукт, а не описано».
+# ============================================================================================
+# Что считается ПРОДУКТОМ при поиске маркеров и запрещённых формулировок.  Список закрыт
+# намеренно -- он и есть определение слова «продукт» для этих трёх гейтов.
+LAW_DIRS = (
+    "tempo",
+    "tools",
+    "tests",
+    "kernels",
+    "docs",
+    "bench",
+    "README.md",
+    "CHANGELOG.md",
+)
+LAW_SUFFIXES = (".py", ".cu", ".cuh", ".cpp", ".h", ".md", ".json", ".inc")
+
+
+def _laws():
+    from tempo.core import laws
+
+    return laws, laws.load(ROOT)
+
+
+def test_g9_law_record():
+    """G9 -- ЗАКОН БЕЗ ОБЛАСТИ И БЕЗ ФАЛЬСИФИКАТОРА ЕСТЬ МИНА.
+
+    Проверяется ровно то же, что `Rate.check()` проверяет у ЧИСЛА, только у УТВЕРЖДЕНИЯ:
+    происхождение (отчёт + числа + карта), фальсификатор, область.  Замер при чужом процессе
+    на карте недействителен -- у закона так же, как у ставки.
+    """
+    laws, all_laws = _laws()
+    assert all_laws, "реестр пуст: гейт нечего проверять"
+    bad = []
+    for l in all_laws:
+        bad += laws.check_record(l)
+    bad += laws.check_links(all_laws)
+    assert not bad, "записи реестра неполны:\n  " + "\n  ".join(bad)
+
+    # ФАЛЬСИФИКАТОР САМОГО ГЕЙТА: запись без области и с чужими процессами обязана быть
+    # отвергнута.  Без этой пары строк гейт зелен и на пустой проверке.
+    ghost = laws.Law(
+        id="L-GHOST",
+        kind="ЗАКОН",
+        statement="закон без области",
+        anchor=laws.Anchor(
+            report="EV_ghost.md",
+            numbers=("1",),
+            status="MEASURED",
+            card=laws.Card(index=0, clock_mhz=1530, foreign_procs=2, date=""),
+        ),
+        falsifier=laws.Falsifier(what="", how=""),
+        scope={},
+    )
+    probs = laws.check_record(ghost)
+    assert any("область" in p for p in probs), "пустая область НЕ отвергнута"
+    assert any("фальсификатор" in p for p in probs), (
+        "отсутствие фальсификатора НЕ отвергнуто"
+    )
+    assert any("чужих процессах" in p for p in probs), (
+        "чужой процесс на карте НЕ отвергнут"
+    )
+
+
+def test_g10_law_home():
+    """G10 -- ЗАКОН БЕЗ МЕСТА.  Место обязано РАЗРЕШАТЬСЯ: путь есть, символ в файле находится.
+
+    Ровно этот гейт поймал бы субаддитивность фаз: требование печатать оговорку записано в
+    журнале наблюдателя, а инструмент её не печатал.  Объявление проверяется в ОБЕ стороны:
+    закон, объявленный внесённым без исполняемого места, -- завышение; долг, у которого место
+    и падающая проверка уже есть, -- занижение.
+    """
+    laws, all_laws = _laws()
+    bad = []
+    for l in all_laws:
+        bad += laws.check_homes(l, ROOT)
+    bad += laws.check_selftests(all_laws)
+    assert not bad, "места законов не разрешаются:\n  " + "\n  ".join(bad)
+
+    # ОПИСЬ ДОЛГОВ ОБЯЗАНА БЫТЬ НЕПУСТОЙ ИЛИ ЧЕСТНО ПУСТОЙ: молчаливое «долгов нет» при живых
+    # долгах -- это и есть та ложь, ради которой заводится реестр.  Здесь проверяется лишь то,
+    # что вид ДОЛГ вообще различается инструментом.
+    debts = [l for l in all_laws if l.kind == "ДОЛГ"]
+    wired = [l for l in all_laws if l.kind != "ДОЛГ"]
+    assert wired, (
+        "в реестре нет НИ ОДНОГО внесённого закона -- реестр описывает пустоту"
+    )
+    for l in debts:
+        assert not (l.wired and l.has_selftest), (
+            "%s объявлен долгом, но уже оплачен" % l.id
+        )
+
+    # docs/LAWS.md ПОРОЖДАЕТСЯ из реестра: проза, разошедшаяся с данными, учит неверному.
+    path = os.path.join(ROOT, "docs", "LAWS.md")
+    assert os.path.exists(path), "docs/LAWS.md не порождён"
+    with open(path, encoding="utf-8") as fh:
+        got = fh.read()
+    want = laws.render_markdown(all_laws)
+    assert got == want, (
+        "docs/LAWS.md разошёлся с реестром. Пересоздать: "
+        "python3 -m tempo.cli laws --md > docs/LAWS.md"
+    )
+
+
+def test_g11_two_way_binding():
+    """G11 -- ДВУСТОРОННЯЯ ПРИВЯЗКА И ЗАПРЕТ ОПРОВЕРГНУТОГО.
+
+    (а) каждый маркер `LAW=<id>` в дереве обязан разрешаться в запись реестра;
+    (б) у каждого ВНЕСЁННОГО закона обязан быть хотя бы один ссылающийся маркер;
+    (в) опровергнутой формулировки в дереве быть не должно -- кроме ЦИТАТЫ, рядом с которой
+        назван идентификатор опровергающей записи.
+
+    Пункт (в) -- единственная падающая проверка, какая у опровержения вообще возможна: у
+    закона место СЧИТАЕТ, у опровержения считать нечего, оно ГОВОРИТ.  Без него опровержение
+    живёт ровно до первого, кто перепишет старый вывод по памяти.
+    """
+    laws, all_laws = _laws()
+    idx = laws.by_id(all_laws)
+    found = laws.scan_markers(ROOT, LAW_DIRS, LAW_SUFFIXES)
+
+    unknown = sorted(set(found) - set(idx))
+    assert not unknown, (
+        "маркеры LAW= ссылаются на записи, которых в реестре нет: %s" % unknown
+    )
+
+    unreferenced = [l.id for l in all_laws if l.kind != "ДОЛГ" and l.id not in found]
+    assert not unreferenced, (
+        "внесённые законы, на которые в коде НЕТ маркера LAW=: %s. Дрейф возможен в обе "
+        "стороны, поэтому привязка обязана быть двусторонней." % unreferenced
+    )
+
+    bad = laws.check_forbidden(all_laws, ROOT, LAW_DIRS, LAW_SUFFIXES)
+    assert not bad, "опровергнутое вернулось в дерево:\n  " + "\n  ".join(bad)
+
+    # ФАЛЬСИФИКАТОР ГЕЙТА: проверка обязана ловить фразу, перенесённую по строке и написанную
+    # другим регистром.  Первая её редакция этого не умела и пропускала три места из пяти.
+    ref = [l for l in all_laws if l.forbidden]
+    assert ref, "в реестре нет ни одного запрета -- пункт (в) проверяет пустоту"
+    pat = ref[0].forbidden[0].pattern
+    words = pat.split()
+    assert len(words) > 1, (
+        "запрет из одного слова не годится для проверки переноса строки"
+    )
+    broken = (" ".join(words[:1]) + "\n      " + " ".join(words[1:])).upper()
+    assert laws.normalize(pat) in laws.normalize(broken), (
+        "проверка запретов не переживает перенос строки и смену регистра -- то есть её обходят "
+        "случайно, простым переформатированием"
+    )
+
+
+# ============================================================================================
 GATES = [
     ("G1 лексический", test_g1_lexical),
     ("G2 пустой плагин", test_g2_null_plugin),
@@ -352,6 +553,9 @@ GATES = [
     ("G6 возмущение ставки", test_g6_perturbation),
     ("G7 лицензия и пути", test_g7_license_and_paths),
     ("G8 фальсификатор допущения", test_g8_assumption_falsifier),
+    ("G9 запись закона", test_g9_law_record),
+    ("G10 место закона", test_g10_law_home),
+    ("G11 двусторонняя привязка", test_g11_two_way_binding),
 ]
 
 

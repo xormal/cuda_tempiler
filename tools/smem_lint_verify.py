@@ -4,6 +4,7 @@
 # Считаются только СЧЁТЧИКИ (замеры времени запрещены -- карта делится с другим нарядом).
 import os, subprocess, sys
 
+
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
     import importlib.util as _u, os as _o
@@ -33,9 +34,7 @@ _ENV = _tempo_env_load()
 # полезной работы, а ncu отдаёт ПУСТУЮ таблицу, которая читается как «конфликтов нет».
 _here = os.path.dirname(os.path.abspath(__file__))
 sys.path[:] = [q for q in sys.path if os.path.abspath(q or ".") != _here]
-NCU = (
-    _ENV.ncu() or "ncu"
-)
+NCU = _ENV.ncu() or "ncu"
 PY = _ENV.python_vllm() or "python3"
 M = ",".join(
     [
@@ -60,8 +59,6 @@ def run(d):
 
 def parse(txt):
     import csv, io
-
-
 
     rows = list(csv.reader(io.StringIO(txt)))
     hdr = None

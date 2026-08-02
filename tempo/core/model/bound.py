@@ -45,11 +45,15 @@ class Bound:
         if self.silent:
             return "МОДЕЛЬ МОЛЧИТ: %s" % self.silent_reason
         head = "T >= %.2f такта (ResMII %.2f, RecMII %.2f), связывает %s" % (
-            self.T, self.res_mii, self.rec_mii, self.binding
+            self.T,
+            self.res_mii,
+            self.rec_mii,
+            self.binding,
         )
         if self.uses_not_measured:
-            head += "\n  ВНИМАНИЕ: вывод опирается на НЕ ЗАМЕРЕННЫЕ ставки: " + ", ".join(
-                self.uses_not_measured
+            head += (
+                "\n  ВНИМАНИЕ: вывод опирается на НЕ ЗАМЕРЕННЫЕ ставки: "
+                + ", ".join(self.uses_not_measured)
             )
         return head
 
@@ -57,9 +61,17 @@ class Bound:
 def res_mii(atoms, channels, warps_per_sm: int = 1, schedulers: int = 1):
     """Нагрузка канала / его ёмкость.
 
-    scope="sm" -- ресурс ВСЕГО мультипроцессора: нагрузка на него растёт с числом варпов
-    в `schedulers` раз быстрее, чем на ресурс планировщика.  ИЗ-ЗА ЭТОГО СВЯЗЫВАЮЩИЙ РЕСУРС
-    МЕНЯЕТСЯ С ЗАНЯТОСТЬЮ, и назначать его нельзя -- только открывать.
+    scope="sm" -- ресурс ВСЕГО мультипроцессора: его нагрузка домножается на число варпов.
+    scope="sched" -- ресурс планировщика: ёмкость объявлена в тактах НА КОМАНДУ, поэтому
+    нагрузка есть произведение числа команд на ставку.
+
+    ЧТО ЗДЕСЬ НЕЛЬЗЯ ПРОЧЕСТЬ КАК ВЫВОД (закон L-OCCUPANCY-MOVES-BINDING, data/laws/method.json).
+    Прежняя редакция этой строки утверждала, что связывающий ресурс МЕНЯЕТСЯ с занятостью.
+    Замер это ОПРОВЕРГ: прогон одного тела при 8/16/32 варпах не сдвинул доли каналов ни на
+    процент, потому что в модели стенда ОБА вида канала линейны по числу варпов и их отношение
+    постоянно.  Здесь арифметика ДРУГАЯ (варпы входят только в канал процессора), и это
+    расхождение двух моделей одного дерева -- НАЗВАННЫЙ ДОЛГ, а не подтверждение старого
+    вывода: см. запись L-TWO-MODELS-OCCUPANCY.  Связывающий ресурс открывают, а не назначают.
     """
     from tempo.core.ir.atom import channel_load
 
@@ -102,7 +114,11 @@ def rec_mii(atoms) -> float:
             edges.append((idx[d.src_uid], idx[a.uid], w, max(0, int(d.distance))))
     if not edges:
         return 0.0
-    cycles_edges = [(u, v, Fraction(w).limit_denominator(10**6)) for u, v, w, dist in edges if dist > 0]
+    cycles_edges = [
+        (u, v, Fraction(w).limit_denominator(10**6))
+        for u, v, w, dist in edges
+        if dist > 0
+    ]
     if not cycles_edges:
         return 0.0
     try:
@@ -123,7 +139,10 @@ def bound(atoms, channels, warps_per_sm: int = 1, schedulers: int = 1) -> Bound:
     per, nm = res_mii(atoms, channels, warps_per_sm, schedulers)
     if not per:
         return Bound(
-            T=float("nan"), res_mii=float("nan"), rec_mii=float("nan"), binding="",
+            T=float("nan"),
+            res_mii=float("nan"),
+            rec_mii=float("nan"),
+            binding="",
             silent=True,
             silent_reason="связывающий ресурс не представлен ни одним каналом с ЗАМЕРЕННОЙ ставкой"
             + (" (не замерены: %s)" % ", ".join(nm) if nm else ""),
@@ -134,9 +153,12 @@ def bound(atoms, channels, warps_per_sm: int = 1, schedulers: int = 1) -> Bound:
     rec = rec_mii(atoms)
     T = max(r, rec)
     return Bound(
-        T=T, res_mii=r, rec_mii=rec,
+        T=T,
+        res_mii=r,
+        rec_mii=rec,
         binding=binding if r >= rec else "RECURRENCE",
-        per_channel=per, uses_not_measured=nm,
+        per_channel=per,
+        uses_not_measured=nm,
     )
 
 

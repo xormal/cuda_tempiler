@@ -26,8 +26,11 @@ import sys
 # отдаёт пустую таблицу, которая читается как «конфликтов нет».
 # Тот же приём уже стоит в tools/ncu.py -- здесь он был пропущен.
 _HERE_DIR = os.path.dirname(os.path.abspath(__file__))
-if __name__ == "__main__":  # как БИБЛИОТЕКУ нас импортируют ИЗ этого каталога -- не рубить
+if (
+    __name__ == "__main__"
+):  # как БИБЛИОТЕКУ нас импортируют ИЗ этого каталога -- не рубить
     sys.path[:] = [q for q in sys.path if os.path.abspath(q or ".") != _HERE_DIR]
+
 
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
@@ -55,10 +58,7 @@ _ENV = _tempo_env_load()
 
 # ИМЕННО ЭТОТ путь, а не .../bin/ncu: тот launcher отвечает "Nsight Compute is not installed"
 # и даёт ПУСТОЙ вывод, который таблица читала как "конфликтов нет". 2025.x на Volta не работает.
-NCU = (
-    _ENV.ncu()
-    or "ncu"
-)
+NCU = _ENV.ncu() or "ncu"
 PY = _ENV.python_vllm() or "python3"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -152,8 +152,6 @@ def parse(csv_text):
     """ncu --csv: одна строка на (ядро, метрика). Складываем по ядрам."""
     import csv
     import io
-
-
 
     rows = list(csv.reader(io.StringIO(csv_text)))
     hdr = None

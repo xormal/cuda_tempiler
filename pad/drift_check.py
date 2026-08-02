@@ -22,6 +22,7 @@ import os
 import subprocess
 import sys
 
+
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
     import importlib.util as _u, os as _o
@@ -85,8 +86,6 @@ def main():
     sys.path.insert(0, REPO)
     import fa2_sm70 as F
     from torch.utils.cpp_extension import load
-
-
 
     os.makedirs(BDIR, exist_ok=True)
     m = load(

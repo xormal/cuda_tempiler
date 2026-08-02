@@ -27,7 +27,8 @@ class _Refuses:
     def __getattr__(self, name):
         def _fail(*a, **k):
             raise PluginCapabilityError(
-                "пустой плагин: раздел %r не реализован (спрошено %r)" % (self._section, name)
+                "пустой плагин: раздел %r не реализован (спрошено %r)"
+                % (self._section, name)
             )
 
         return _fail

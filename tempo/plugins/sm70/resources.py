@@ -44,13 +44,19 @@ class Sm70Resources:
         """СТУПЕНЬКА, не прямая: первые два бесплатны, дальше x5.1, у края x75.7."""
         free = self.free_spills()
         if n <= free:
-            return Rate("SPILL.COST", 1.0, "кратность", "MEASURED",
-                        note="первые %d разлитых значения бесплатны (их LDL прячется)" % free)
+            return Rate(
+                "SPILL.COST",
+                1.0,
+                "кратность",
+                "MEASURED",
+                note="первые %d разлитых значения бесплатны (их LDL прячется)" % free,
+            )
         step = _M.rate("REG.SPILL_STEP")
         edge = _M.rate("REG.SPILL_EDGE")
         val = step.value if n < 16 else edge.value
-        return Rate("SPILL.COST", val, "кратность", "MEASURED",
-                    prov=step.prov, note=step.note)
+        return Rate(
+            "SPILL.COST", val, "кратность", "MEASURED", prov=step.prov, note=step.note
+        )
 
     def occupancy(self, regs: int, smem_bytes: int, threads: int) -> Occupancy:
         """варпов/SM = floor(65536/рег/32); ФОРМА CTA ЕГО НЕ МЕНЯЕТ."""
@@ -61,7 +67,9 @@ class Sm70Resources:
 
         by_reg = words // max(1, regs) // tpw
         warps_per_cta = max(1, threads // tpw)
-        by_smem = (smem_sm // max(1, smem_bytes)) * warps_per_cta if smem_bytes else slots
+        by_smem = (
+            (smem_sm // max(1, smem_bytes)) * warps_per_cta if smem_bytes else slots
+        )
         w = min(slots, by_reg, by_smem)
         limiter = "regs"
         if by_smem < by_reg and by_smem <= slots:
@@ -78,28 +86,39 @@ class Sm70Resources:
                 w = warps_per_cta
                 limiter = "second_cta_threshold"
         return Occupancy(
-            warps_per_sm=int(w), ctas_per_sm=int(ctas), regs_per_thread=int(regs), limiter=limiter
+            warps_per_sm=int(w),
+            ctas_per_sm=int(ctas),
+            regs_per_thread=int(regs),
+            limiter=limiter,
         )
 
     # -- ВЕРДИКТ БЕЗ СБОРКИ ------------------------------------------------------------------
-    def verdict(self, regs: int, max_live: int, smem_bytes: int, threads: int) -> ResourceVerdict:
+    def verdict(
+        self, regs: int, max_live: int, smem_bytes: int, threads: int
+    ) -> ResourceVerdict:
         isa = int(_M.rate("GEOM.REG_ISA_LIMIT").value)
         smem_max = int(_M.rate("GEOM.SMEM_PER_CTA_MAX").value)
         occ = self.occupancy(regs, smem_bytes, threads)
 
         if smem_bytes > smem_max:
             return ResourceVerdict(
-                False, "WALL_SMEM", occ,
+                False,
+                "WALL_SMEM",
+                occ,
                 "разделяемой нужно %d Б при потолке %d Б (потолок найден ИЗ ОТКАЗА ЗАПУСКА, "
                 "а не из спецификации)" % (smem_bytes, smem_max),
             )
         if occ.warps_per_sm <= 0 or occ.ctas_per_sm <= 0:
-            return ResourceVerdict(False, "NO_BUDGET", occ, "ни один блок не резидентен")
+            return ResourceVerdict(
+                False, "NO_BUDGET", occ, "ни один блок не резидентен"
+            )
         need = self.spill_threshold(max_live)
         budget = min(isa, self.reg_budget(occ.warps_per_sm))
         if need > isa:
             return ResourceVerdict(
-                False, "WALL_REG", occ,
+                False,
+                "WALL_REG",
+                occ,
                 "MaxLive %d + %d = %d > потолка ISA %d: не лечится занятостью вовсе"
                 % (max_live, need - max_live, need, isa),
             )
@@ -107,13 +126,23 @@ class Sm70Resources:
             over = need - budget
             k = self.spill_cost(over)
             return ResourceVerdict(
-                over <= self.free_spills(), "SPILL", occ,
+                over <= self.free_spills(),
+                "SPILL",
+                occ,
                 "разлив %d значений (нужно %d, бюджет %d при %d варпах); цена x%.1f%s"
-                % (over, need, budget, occ.warps_per_sm, k.value,
-                   "" if over > self.free_spills() else " -- в пределах бесплатных"),
+                % (
+                    over,
+                    need,
+                    budget,
+                    occ.warps_per_sm,
+                    k.value,
+                    "" if over > self.free_spills() else " -- в пределах бесплатных",
+                ),
             )
         return ResourceVerdict(
-            True, "FITS", occ,
+            True,
+            "FITS",
+            occ,
             "нужно %d регистров, бюджет %d при %d варпах (%d блок(ов) на SM, ограничивает %s)"
             % (need, budget, occ.warps_per_sm, occ.ctas_per_sm, occ.limiter),
         )

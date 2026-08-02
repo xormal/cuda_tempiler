@@ -46,7 +46,7 @@ def parse_block(text: str) -> dict:
             "читает произвольный C++ -- парсера здесь нет и в версии 1 не будет."
         )
     kind = m.group(1)
-    lines = text[m.end():].split("\n")
+    lines = text[m.end() :].split("\n")
     out = {"kind": kind}
     for ln in lines[:40]:
         if "TEMPO-OP-END" in ln:
@@ -80,7 +80,8 @@ def to_spec(block: dict, shapes: dict = None) -> OpSpec:
                 v = shapes[k]
             else:
                 raise NotRecognised(
-                    "форма %s объявлена как '*' (задаётся при запуске), но при запуске не задана" % k
+                    "форма %s объявлена как '*' (задаётся при запуске), но при запуске не задана"
+                    % k
                 )
         resolved[k] = int(v)
     op = OpSpec(
@@ -110,10 +111,13 @@ def check_signature(block: dict, text: str) -> None:
     entry = block.get("entry")
     if not entry:
         raise NotRecognised("блок TEMPO-OP не объявил точку входа (entry:)")
-    if entry not in text:
+    # Искать ОБЪЯВЛЕНИЕ, а не вхождение имени: имя встречается и в самом блоке TEMPO-OP,
+    # то есть проверка «имя есть в тексте» была бы ТОЖДЕСТВЕННО ИСТИННОЙ и ничего не ловила.
+    # Это ровно та симметрия, из-за которой две сверки соглашаются, будучи обе неверны.
+    if not re.search(re.escape(entry) + r"\s*\(", text):
         raise NotRecognised(
-            "точка входа %r объявлена в блоке TEMPO-OP, но в исходнике её нет: описание "
-            "отстало от кода" % entry
+            "точка входа %r объявлена в блоке TEMPO-OP, но объявления с таким именем в "
+            "исходнике нет: описание отстало от кода" % entry
         )
     sig = block.get("signature")
     if sig:

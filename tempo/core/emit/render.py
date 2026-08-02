@@ -31,7 +31,7 @@ HEADER = (
 def emit(plugin, op, hyper, out_dir, version="0.1", data_hash="-", date="") -> str:
     r = plugin.skeletons.render(op, hyper)
     os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, "kernel.cuh")
+    path = os.path.join(out_dir, getattr(r, "filename", None) or "kernel.cuh")
     text = HEADER + "// " + stamp(version, plugin.id, data_hash, date) + "\n" + r.source
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)

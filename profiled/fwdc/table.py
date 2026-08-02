@@ -19,6 +19,7 @@ import re
 import subprocess
 import sys
 
+
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
     import importlib.util as _u, os as _o

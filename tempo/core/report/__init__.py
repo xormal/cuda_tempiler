@@ -18,8 +18,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from tempo.core.measure.baseline import Comparison, two_bars_required, wall_share_required
+from tempo.core.measure.baseline import (
+    Comparison,
+    two_bars_required,
+    wall_share_required,
+)
 from tempo.core.report.provenance import require_provenance
+
+
+# Ширина разделителя в печати. Названа константой намеренно: голый литерал в
+# арифметике конвейера ловится гейтом G1, и правильно -- так протекают числа железа.
+_RULE_WIDTH = 100
 
 
 @dataclass
@@ -55,15 +64,23 @@ class Report:
     def render(self) -> str:
         require_provenance(self)
         two_bars_required(self.comparisons)
-        out = ["=" * 96, self.title, "=" * 96]
+        rule = "=" * _RULE_WIDTH
+        out = [rule, self.title, rule]
 
         # ШАПКА: карта, частоты, соседи. Без них число недействительно.
         if self.card is None:
-            out.append("КАРТА НЕ УКАЗАНА -- всякое число ниже НЕДЕЙСТВИТЕЛЬНО как замер")
+            out.append(
+                "КАРТА НЕ УКАЗАНА -- всякое число ниже НЕДЕЙСТВИТЕЛЬНО как замер"
+            )
         else:
             out.append(
                 "карта %s, частота %s МГц, чужих процессов %s, дата %s"
-                % (self.card.index, self.card.clock_mhz, self.card.foreign_procs, self.card.date)
+                % (
+                    self.card.index,
+                    self.card.clock_mhz,
+                    self.card.foreign_procs,
+                    self.card.date,
+                )
             )
             if self.card.foreign_procs:
                 out.append("ЗАМЕР С СОСЕДОМ НА КАРТЕ НЕДЕЙСТВИТЕЛЕН")
@@ -73,7 +90,8 @@ class Report:
         nm = [r for r in self.rates_used if getattr(r, "status", "") == "NOT_MEASURED"]
         if nm:
             out.append(
-                "ВЫВОД ОПИРАЕТСЯ НА НЕ ЗАМЕРЕННЫЕ СТАВКИ: " + ", ".join(r.symbol for r in nm)
+                "ВЫВОД ОПИРАЕТСЯ НА НЕ ЗАМЕРЕННЫЕ СТАВКИ: "
+                + ", ".join(r.symbol for r in nm)
             )
 
         # ГРАНИЦА (или её отсутствие)

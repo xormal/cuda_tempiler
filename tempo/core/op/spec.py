@@ -22,7 +22,9 @@ KNOWN_DTYPES = ("fp16", "fp32", "int8", "uint8", "q7", "bf16")
 
 def validate(op: OpSpec) -> None:
     if op.kind not in KNOWN_KINDS:
-        raise ValueError("операция %r не объявлена; известны: %s" % (op.kind, ", ".join(KNOWN_KINDS)))
+        raise ValueError(
+            "операция %r не объявлена; известны: %s" % (op.kind, ", ".join(KNOWN_KINDS))
+        )
     for name in ("dtype_a", "dtype_b", "dtype_c", "dtype_acc"):
         v = getattr(op, name)
         if v not in KNOWN_DTYPES:
@@ -47,7 +49,15 @@ def flops(op: OpSpec) -> float:
 def describe(op: OpSpec) -> str:
     s = op.shapes
     return "%s %sx%sx%s  %s*%s->%s (накопитель %s), раскладки %s/%s/%s" % (
-        op.kind, s.get("M"), s.get("N"), s.get("K"),
-        op.dtype_a, op.dtype_b, op.dtype_c, op.dtype_acc,
-        op.layout_a, op.layout_b, op.layout_c,
+        op.kind,
+        s.get("M"),
+        s.get("N"),
+        s.get("K"),
+        op.dtype_a,
+        op.dtype_b,
+        op.dtype_c,
+        op.dtype_acc,
+        op.layout_a,
+        op.layout_b,
+        op.layout_c,
     )

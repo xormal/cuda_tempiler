@@ -146,7 +146,8 @@ class Rate:
         if self.status == "MEASURED":
             if self.prov is None or self.prov.card is None:
                 raise ContractError(
-                    "%s: MEASURED без карты -- заявка на точность, которой у неё нет" % self.symbol
+                    "%s: MEASURED без карты -- заявка на точность, которой у неё нет"
+                    % self.symbol
                 )
             if self.prov.card.foreign_procs != 0:
                 raise ContractError(
@@ -216,14 +217,22 @@ class Atom:
 # 3.3  ВОСЕМЬ РАЗДЕЛОВ ПЛАГИНА
 # ============================================================================================
 
+
 # --- 1. МАШИНА -----------------------------------------------------------------------------
 @dataclass(frozen=True)
 class Channel:
     """Канал -- то, что ЗАНИМАЕТСЯ на промежутке.  Имя НЕПРОЗРАЧНО для core.
 
     scope="sched" -- ресурс планировщика, "sm" -- ресурс всего SM.  Различие не косметика:
-    нагрузка на ресурс SM растёт с числом варпов вчетверо быстрее, и потому СВЯЗЫВАЮЩИЙ
-    РЕСУРС МЕНЯЕТСЯ С ЗАНЯТОСТЬЮ.  Связывающий ресурс открывают, а не назначают.
+    единицы ёмкости у них РАЗНЫЕ (такт на команду против единиц за такт), и отпечаток обязан
+    нести соответствующую величину.  Смешение единиц уже стоило занижения канала в 128 раз.
+
+    ЧЕГО ЗДЕСЬ БОЛЬШЕ НЕ НАПИСАНО И ПОЧЕМУ (закон L-OCCUPANCY-MOVES-BINDING).  Прежняя
+    редакция объясняла различие тем, что нагрузка на ресурс SM растёт с занятостью быстрее и
+    потому связывающий ресурс с занятостью МЕНЯЕТСЯ.  Замер это опроверг: прогон одного тела
+    при 8/16/32 варпах не сдвинул доли каналов ни на процент -- оба вида канала линейны по
+    числу варпов, отношение постоянно.  Занятость входит в вердикт по-настоящему только через
+    регистровый бюджет.  Связывающий ресурс открывают, а не назначают.
     """
 
     name: str
@@ -234,7 +243,9 @@ class Channel:
 @runtime_checkable
 class Machine(Protocol):
     def arch(self) -> ArchId: ...
-    def symbols(self) -> Mapping[str, Rate]: ...  # ЗАКРЫТАЯ таблица; вне неё -> UnknownSymbol
+    def symbols(
+        self,
+    ) -> Mapping[str, Rate]: ...  # ЗАКРЫТАЯ таблица; вне неё -> UnknownSymbol
     def channels(self) -> Mapping[str, Channel]: ...
     def latency(self, atom_class: str) -> Rate: ...
     def sms(self) -> Rate: ...
@@ -427,6 +438,7 @@ class Classifier(Protocol):
     def classify(self, instr_text: str) -> AtomClass: ...
     def decode(self, binary: Path, kernel_regex: str) -> Any: ...
     def control_fields(self, word: int) -> Any: ...  # вправе бросить NotSupported
+
     # encode_control / roundtrip_proof В КОНТРАКТ v1 НЕ ВХОДЯТ:
     # верификатора зависимостей (T3) нет, а неверный wait даёт не падение,
     # а ТИХО НЕВЕРНЫЙ ОТВЕТ.
@@ -462,6 +474,11 @@ class Rendered:
     launch: Launch
     includes: tuple = ()
     notes: str = ""
+    # ИМЯ ФАЙЛА ВЫБИРАЕТ ПЛАГИН.  Расширение здесь -- НЕ КОСМЕТИКА: текст с ЯВНОЙ
+    # ИНСТАНЦИАЦИЕЙ ядра обязан быть ЕДИНИЦЕЙ ТРАНСЛЯЦИИ (`.cu`), а не заголовком:
+    # включённый дважды заголовок даёт дублирующиеся символы.  Умолчание сохраняет прежнее
+    # поведение для плагинов, которым нечего инстанцировать.
+    filename: str = "kernel.cuh"
 
 
 @runtime_checkable
@@ -470,7 +487,9 @@ class Skeletons(Protocol):
     def axes(self) -> tuple: ...
     def variants(self, op: "OpSpec") -> Iterator[Hyperform]: ...
     def estimate_atoms(self, op: "OpSpec", h: Hyperform) -> list: ...  # БЕЗ СБОРКИ
-    def resources_of(self, op: "OpSpec", h: Hyperform) -> tuple: ...  # regs, max_live, smem
+    def resources_of(
+        self, op: "OpSpec", h: Hyperform
+    ) -> tuple: ...  # regs, max_live, smem
     def launch_of(self, op: "OpSpec", h: Hyperform) -> Launch: ...
     def render(self, op: "OpSpec", h: Hyperform) -> Rendered: ...
     def entry_probe(self, h: Hyperform) -> str: ...
@@ -512,7 +531,9 @@ class Toolchain(Protocol):
 @runtime_checkable
 class Meters(Protocol):
     def counters(self, kind: str) -> list: ...
-    def profile(self, binary: Path, kernel: str, counters: list) -> Mapping[str, float]: ...
+    def profile(
+        self, binary: Path, kernel: str, counters: list
+    ) -> Mapping[str, float]: ...
     def clock_lock(self, card: int, mhz: int) -> ContextManager: ...
 
 
@@ -587,12 +608,21 @@ class Plugin(Protocol):
 # ХЕЛПЕРЫ ДЛЯ ПЛАГИНОВ (не часть границы; чтобы не писать одно и то же пять раз)
 # ============================================================================================
 def rate(symbol, value, units, status, note="", prov=None) -> Rate:
-    return Rate(symbol=symbol, value=float(value), units=units, status=status, note=note, prov=prov)
+    return Rate(
+        symbol=symbol,
+        value=float(value),
+        units=units,
+        status=status,
+        note=note,
+        prov=prov,
+    )
 
 
 def not_measured(symbol, units, note="") -> Rate:
     """Ставка, которой НЕТ.  Печатается как таковая и помечает вердикт в шапке отчёта."""
-    return Rate(symbol=symbol, value=float("nan"), units=units, status="NOT_MEASURED", note=note)
+    return Rate(
+        symbol=symbol, value=float("nan"), units=units, status="NOT_MEASURED", note=note
+    )
 
 
 def closed_table_get(table: Mapping[str, Rate], symbol: str) -> Rate:
@@ -601,5 +631,6 @@ def closed_table_get(table: Mapping[str, Rate], symbol: str) -> Rate:
         return table[symbol]
     except KeyError:
         raise UnknownSymbol(
-            "ставка %r не объявлена; закрытая таблица содержит %d символов" % (symbol, len(table))
+            "ставка %r не объявлена; закрытая таблица содержит %d символов"
+            % (symbol, len(table))
         ) from None

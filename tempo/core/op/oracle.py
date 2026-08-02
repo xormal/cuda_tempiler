@@ -45,7 +45,9 @@ class OracleResult:
 
     def render(self) -> str:
         head = "ГЕЙТ КОРРЕКТНОСТИ: relL2 = %.3e при допуске %.3e -- %s" % (
-            self.rel_l2, self.tol, "ПРОЙДЕН" if self.ok else "НЕ ПРОЙДЕН"
+            self.rel_l2,
+            self.tol,
+            "ПРОЙДЕН" if self.ok else "НЕ ПРОЙДЕН",
         )
         if self.coverage is not None:
             head += "\n  " + self.coverage.render()
@@ -77,7 +79,9 @@ def gate(got, ref, tol: float, stamps=None, independent=None) -> OracleResult:
 
     cov = check(stamps) if stamps is not None else None
     ind = rel_l2(got, independent) if independent is not None else float("nan")
-    res = OracleResult(rel_l2=rel_l2(got, ref), tol=tol, coverage=cov, independent_rel_l2=ind)
+    res = OracleResult(
+        rel_l2=rel_l2(got, ref), tol=tol, coverage=cov, independent_rel_l2=ind
+    )
     if cov is not None and cov.zero:
         res.notes.append(
             "НЕПОКРЫТЫЕ ЯЧЕЙКИ при пройденной сверке значений -- это ровно тот случай, когда "

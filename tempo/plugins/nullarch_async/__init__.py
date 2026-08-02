@@ -63,7 +63,9 @@ class NullarchAsyncPlugin(NullarchPlugin):
     def selftest(self) -> Report:
         r = super().selftest()
         tx = self.sync.transactions()[0]
-        r.check("подача объявлена НЕ съедающей регистры", tx.consumes_registers is False)
+        r.check(
+            "подача объявлена НЕ съедающей регистры", tx.consumes_registers is False
+        )
         r.check("ожидание объявлено ЯВНЫМ", tx.wait_op is not None)
 
         # То самое, ради чего плагин существует: глубина перестала стоить регистров.
@@ -74,8 +76,11 @@ class NullarchAsyncPlugin(NullarchPlugin):
         deep = [h for h in self.skeletons.variants(op) if h.params["depth"] == 3][0]
         regs_here = self.skeletons.resources_of(op, deep)[0]
         regs_base = base.skeletons.resources_of(op, deep)[0]
-        r.check("глубина подачи БОЛЬШЕ НЕ СТОИТ регистров", regs_here < regs_base,
-                "%d против %d" % (regs_here, regs_base))
+        r.check(
+            "глубина подачи БОЛЬШЕ НЕ СТОИТ регистров",
+            regs_here < regs_base,
+            "%d против %d" % (regs_here, regs_base),
+        )
         return r
 
 

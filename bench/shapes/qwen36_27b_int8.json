@@ -1,0 +1,49 @@
+{
+  "schema": "tempo/shapes/1",
+  "what": "БОЕВЫЕ ФОРМЫ линейной части Huihui-Qwen3.6-27B-abliterated-INT8 -- сети, которая РЕАЛЬНО крутится на картах 2-3. ЭТО ДАННЫЕ, а не код: сюда кладут форму, а не гипотезу.",
+  "source": "заголовки 15 файлов safetensors (2237 тензоров) + слияния, которые делает vLLM; проверено живьём в боевом окружении /mnt/d1/alex/VLLM_ch/.venv-1cat-vllm",
+  "model": {
+    "path": "/mnt/d1/alex/VLLM_ch/Huihui-Qwen3.6-27B-abliterated-INT8",
+    "arch": "qwen3_5 (Qwen3_5ForConditionalGeneration)",
+    "hidden": 5120, "intermediate": 17408, "heads": 24, "kv_heads": 4, "head_dim": 256,
+    "layers": 64, "layers_full_attention": 16, "layers_linear_attention": 48,
+    "full_attention_interval": 4, "attn_output_gate": true,
+    "linear_key_head_dim": 128, "linear_num_key_heads": 16,
+    "linear_value_head_dim": 128, "linear_num_value_heads": 48,
+    "quant": "GPTQ int8, group_size 128, desc_act=false, sym=false",
+    "runtime_dtype": "float16 (боевой запуск идёт с --dtype float16; bf16 на sm_70 нет)",
+    "tp": 2
+  },
+  "note": "M -- число строк выхода (токенов). Префилл -- тысячи; декод 1..64. ВНИМАНИЕ на int8-формах: exllama переключается с поплиточной распаковки на 'разово в temp_dq + cublasHgemm' выше M=24 (MAX_Q_GEMM_ROWS_8BIT в боевом дереве = 24; правка на 33 живёт только в /mnt/d1/alex/1Cat-vLLM-fa2-work и в бой НЕ отгружена). Значит соперник МЕНЯЕТСЯ между M=24 и M=25, и точки по обе стороны нельзя усреднять не глядя.",
+  "matrices": [
+    {"id": "S1", "name": "mlp.gate_up_proj", "K": 5120, "N": 34816, "fmt": "gptq_int8_g128",
+     "layers": 63, "byte_share": 0.4084, "flop_share": 0.4685,
+     "note": "слито vLLM из gate_proj+up_proj (MergedColumnParallelLinear [17408,17408]). Самая крупная масса: 41 % байт весов шага. Слой 0 -- bf16 (не квантован)."},
+    {"id": "S2", "name": "mlp.down_proj", "K": 17408, "N": 5120, "fmt": "gptq_int8_g128",
+     "layers": 63, "byte_share": 0.2043, "flop_share": 0.2343,
+     "note": "RowParallel: при TP=2 делится K -> 8704. Вход ОДНОСТОРОННИЙ (после SiLU-гейта), домен точности накопителя проверять отдельно."},
+    {"id": "S3", "name": "self_attn.o_proj | linear_attn.out_proj", "K": 6144, "N": 5120,
+     "fmt": "gptq_int8_g128", "layers": 63, "byte_share": 0.0721, "flop_share": 0.0827,
+     "note": "ОДНА форма на две роли: 16 слоёв полного внимания (24 головы x 256) и 47 слоёв GDN (48 голов x 128) дают одинаковые 6144x5120. Мерится ОДИН раз."},
+    {"id": "S4", "name": "linear_attn.in_proj_qkvz", "K": 5120, "N": 16384,
+     "fmt": "gptq_int8_g128", "layers": 47, "byte_share": 0.1449, "flop_share": 0.1654,
+     "note": "вход линейной мешалки (GDN). vLLM сливает checkpoint-овые in_proj_qkv(10240)+in_proj_z(6144) в один MergedColumnParallelLinear [2048,2048,6144,6144]. КВАНТОВАН -- вопреки тому, что 'входы мешалки не квантованы'."},
+    {"id": "S5", "name": "self_attn.qkv_proj", "K": 5120, "N": 14336, "fmt": "fp16_dense",
+     "layers": 16, "byte_share": 0.0809, "flop_share": 0.0482,
+     "note": "НЕ квантован (quantization_config.dynamic исключает qkv_proj). N=14336 = 24*2*256 (q+гейт, attn_output_gate=true) + 2*4*256 (kv). ЭТО ЕДИНСТВЕННАЯ форма, где сегодня работает наш отгруженный плотный путь sm70_f16_gemm."},
+    {"id": "S6", "name": "linear_attn.in_proj_ba", "K": 5120, "N": 96, "fmt": "fp16_dense",
+     "layers": 48, "byte_share": 0.0016, "flop_share": 0.0010,
+     "note": "b и a линейной мешалки, по 48 значений. НЕ квантованы -- но это КРОШКИ: 0.16 % байт шага. Отгруженный диспетчер tempo эту форму НЕ покрывает (все его ветви требуют N%128==0 или N%256==0)."}
+  ],
+  "M_prefill": [512, 2048, 8192],
+  "M_decode": [1, 8, 32, 128],
+  "outside_set": [
+    {"name": "lm_head", "K": 5120, "N": 248320, "fmt": "fp16_dense", "byte_share": 0.0876,
+     "note": "8.8 % байт шага, но M у него НЕ равно M тела (логиты считаются не для всех строк) -- поэтому в заголовочный набор не входит и меряется отдельно."}
+  ],
+  "step_weight_bytes": 29.02e9,
+  "set_covers_of_step_bytes": 0.912,
+  "wall_share": {
+    "note": "доля линейной части в стене НЕ ПЕРЕНОСИТСЯ с Gemma-4: у этой сети 48 слоёв из 64 -- линейная мешалка (GDN), а не полное внимание, и её собственный скан в стене префилла отдельная статья. Мерить ДО встраивания."
+  }
+}

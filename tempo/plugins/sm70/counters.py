@@ -23,7 +23,9 @@ from pathlib import Path
 
 from ..base import PluginCapabilityError
 
-_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
+)
 
 COUNTERS = {
     "smem_wavefronts": [
@@ -75,7 +77,8 @@ class Sm70Meters:
             return list(COUNTERS[kind])
         except KeyError:
             raise PluginCapabilityError(
-                "у sm_70 нет группы счётчиков %r; есть: %s" % (kind, ", ".join(sorted(COUNTERS)))
+                "у sm_70 нет группы счётчиков %r; есть: %s"
+                % (kind, ", ".join(sorted(COUNTERS)))
             ) from None
 
     def profile(self, binary: Path, kernel: str, counters: list):

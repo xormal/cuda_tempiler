@@ -26,7 +26,9 @@ from pathlib import Path
 
 from ..base import BuildResult, EnvReq, PluginCapabilityError
 
-_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
+)
 _TOOLS = os.path.join(_ROOT, "tools")
 
 
@@ -57,12 +59,22 @@ class Sm70Toolchain:
         e = _env()
         return [
             EnvReq("nvcc", e.nvcc(), "компилятор; отвергнет хост-gcc старше 14"),
-            EnvReq("ptxas", e.ptxas(), "регистры / разлив / КАДР СТЕКА (три РАЗНЫХ числа)"),
-            EnvReq("cuobjdump", e.cuobjdump(), "SASS для разборщика и проверки LDL/STL в циклах"),
-            EnvReq("cuda_include", e.cuda_include(), "заголовки для линтера разделяемой"),
+            EnvReq(
+                "ptxas", e.ptxas(), "регистры / разлив / КАДР СТЕКА (три РАЗНЫХ числа)"
+            ),
+            EnvReq(
+                "cuobjdump",
+                e.cuobjdump(),
+                "SASS для разборщика и проверки LDL/STL в циклах",
+            ),
+            EnvReq(
+                "cuda_include", e.cuda_include(), "заголовки для линтера разделяемой"
+            ),
         ]
 
-    def compile(self, source: Path, out: Path, mode="cubin", extra=None, build_dir=None):
+    def compile(
+        self, source: Path, out: Path, mode="cubin", extra=None, build_dir=None
+    ):
         """Сборка через cc_ab.compile_cubin, если он доступен; иначе прямой nvcc.
 
         КАТАЛОГ СБОРКИ ЗАДАЁТСЯ ЯВНО И НИКОГДА НЕ НАСЛЕДУЕТСЯ. Замеренная цена нарушения:

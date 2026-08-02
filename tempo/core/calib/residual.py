@@ -27,13 +27,18 @@ class Residual:
 
     def render(self) -> str:
         if not self.rows:
-            return "ОТЧЁТ О НЕВЯЗКЕ ПУСТ: калибровка ничего не сверила -- это НЕ 'сошлось'"
+            return (
+                "ОТЧЁТ О НЕВЯЗКЕ ПУСТ: калибровка ничего не сверила -- это НЕ 'сошлось'"
+            )
         out = ["ОТЧЁТ О НЕВЯЗКЕ (замер против модели)"]
         worst = 0.0
         for what, meas, mod in self.rows:
             d = 0.0 if meas == 0 else 100.0 * (mod - meas) / meas
             worst = max(worst, abs(d))
-            out.append("  %-40s замер %10.4g  модель %10.4g  невязка %+7.2f %%" % (what, meas, mod, d))
+            out.append(
+                "  %-40s замер %10.4g  модель %10.4g  невязка %+7.2f %%"
+                % (what, meas, mod, d)
+            )
         out.append("  максимум |невязки|: %.2f %%" % worst)
         out.append(
             "  НАПОМИНАНИЕ: невязка, обнулённая ПОДБОРОМ ставки, модель не подтверждает. "

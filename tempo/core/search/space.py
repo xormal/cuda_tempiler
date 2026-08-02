@@ -26,7 +26,9 @@ def enumerate_variants(plugin, op, limit=None):
 def axes_table(plugin) -> str:
     rows = ["ОСИ ПОИСКА, ОБЪЯВЛЕННЫЕ ПЛАГИНОМ %s" % plugin.id]
     for a in plugin.skeletons.axes():
-        rows.append("  %-14s двигает: %s" % (a.name, ", ".join(sorted(a.affects)) or "-"))
+        rows.append(
+            "  %-14s двигает: %s" % (a.name, ", ".join(sorted(a.affects)) or "-")
+        )
     return "\n".join(rows)
 
 

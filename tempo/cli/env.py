@@ -184,7 +184,9 @@ def ncu_candidates():
         "/usr/local/NVIDIA-Nsight-Compute*/ncu",
     ]
     for r in _roots():
-        pats.append(os.path.join(r, "envs", "*", "bin", "ncu"))  # заведомо подозрительные
+        pats.append(
+            os.path.join(r, "envs", "*", "bin", "ncu")
+        )  # заведомо подозрительные
     out = []
     for p in pats:
         out += sorted(glob.glob(p))
@@ -215,7 +217,9 @@ def torch_include():
     pats = []
     for r in _roots():
         pats += [
-            os.path.join(r, "envs", "*", "lib", "python3.*", "site-packages", "torch", "include")
+            os.path.join(
+                r, "envs", "*", "lib", "python3.*", "site-packages", "torch", "include"
+            )
         ]
     return _first(pats)
 
@@ -227,7 +231,14 @@ def torch_includes():
         out += sorted(
             glob.glob(
                 os.path.join(
-                    r, "envs", "*", "lib", "python3.*", "site-packages", "torch", "include"
+                    r,
+                    "envs",
+                    "*",
+                    "lib",
+                    "python3.*",
+                    "site-packages",
+                    "torch",
+                    "include",
                 )
             )
         )
@@ -269,18 +280,30 @@ def _selftest():
     print("САМОПРОВЕРКА tempo/cli/env.py")
     chk("список корней не пуст (иначе резолвер слеп)", len(_roots()) > 0)
     chk("_first на пустом списке возвращает None", _first([]) is None)
-    chk("_first на несуществующем возвращает None", _first(["/nonexistent/*/x"]) is None)
+    chk(
+        "_first на несуществующем возвращает None", _first(["/nonexistent/*/x"]) is None
+    )
     os.environ["TEMPO_PY"] = sys.executable
     chk("переменная окружения имеет приоритет", python_vllm() == sys.executable)
     del os.environ["TEMPO_PY"]
     os.environ["TEMPO_PY"] = "/nonexistent/python"
-    chk("несуществующее значение переменной ИГНОРИРУЕТСЯ, а не ломает", python_vllm() != "/nonexistent/python")
+    chk(
+        "несуществующее значение переменной ИГНОРИРУЕТСЯ, а не ломает",
+        python_vllm() != "/nonexistent/python",
+    )
     del os.environ["TEMPO_PY"]
-    chk("ncu_candidates() -- список без повторов", len(ncu_candidates()) == len(set(ncu_candidates())))
-    chk("table() отдаёт все объявленные ключи", set(table()) == {n for n, _, _ in _ITEMS})
-    chk("ни один путь не вшит как литерал в ответ", all(
-        (v is None or os.path.exists(v)) for v in table().values()
-    ))
+    chk(
+        "ncu_candidates() -- список без повторов",
+        len(ncu_candidates()) == len(set(ncu_candidates())),
+    )
+    chk(
+        "table() отдаёт все объявленные ключи",
+        set(table()) == {n for n, _, _ in _ITEMS},
+    )
+    chk(
+        "ни один путь не вшит как литерал в ответ",
+        all((v is None or os.path.exists(v)) for v in table().values()),
+    )
     print("ИТОГ: %d/%d" % (ok, total))
     return 0 if ok == total else 1
 
@@ -306,7 +329,8 @@ def main(argv):
         print("  %-14s %-70s %s" % (name, v or "НЕ НАЙДЕН", what))
     if miss:
         print(
-            "\nНЕ НАЙДЕНО: %d.  Лечение: TEMPO_ROOTS=/путь/к/conda, либо строка в _ROOTS." % miss
+            "\nНЕ НАЙДЕНО: %d.  Лечение: TEMPO_ROOTS=/путь/к/conda, либо строка в _ROOTS."
+            % miss
         )
     return 0
 

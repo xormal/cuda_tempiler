@@ -7,10 +7,16 @@
 Правило проекта: метрика "выход против входа" печатается ТОЛЬКО в паре с абсолютной планкой
 (cuBLAS-fp16). Первая без второй -- самообман: наивный вход обогнать тривиально.
 """
+
 import json, sys, collections
 
-ROLE = {(3840, 4096): "q", (3840, 2048): "k,v", (4096, 3840): "o",
-        (3840, 15360): "gate,up", (15360, 3840): "down"}
+ROLE = {
+    (3840, 4096): "q",
+    (3840, 2048): "k,v",
+    (4096, 3840): "o",
+    (3840, 15360): "gate,up",
+    (15360, 3840): "down",
+}
 ORDER = [(3840, 4096), (3840, 2048), (4096, 3840), (3840, 15360), (15360, 3840)]
 PEAK = 125.3
 
@@ -20,11 +26,14 @@ def load_grid(p):
     build = {}
     for l in open(p):
         if l.startswith("BUILD "):
-            d = json.loads(l[6:]); build[d["tag"]] = d
+            d = json.loads(l[6:])
+            build[d["tag"]] = d
         elif l.startswith("BASE "):
-            d = json.loads(l[5:]); base[(d["K"], d["N"], d["M"])] = d
+            d = json.loads(l[5:])
+            base[(d["K"], d["N"], d["M"])] = d
         elif l.startswith("CAND "):
-            d = json.loads(l[5:]); cand[(d["K"], d["N"], d["M"])].append(d)
+            d = json.loads(l[5:])
+            cand[(d["K"], d["N"], d["M"])].append(d)
     return build, base, cand
 
 
@@ -49,9 +58,24 @@ def main():
     oldp = sys.argv[2] if len(sys.argv) > 2 else None
     build, base, cand = load_grid(grid)
     old = load_old(oldp) if oldp else {}
-    print("%-8s %6s %6s %6s | %9s %7s | %-22s %8s %7s %8s | %8s %8s %8s" % (
-        "роль", "K", "N", "M", "cuBLAS", "%пика", "гиперформа темполятора", "ТФЛОП/с", "%пика",
-        "xcuBLAS", "было", "xвход", "W8A16"))
+    print(
+        "%-8s %6s %6s %6s | %9s %7s | %-22s %8s %7s %8s | %8s %8s %8s"
+        % (
+            "роль",
+            "K",
+            "N",
+            "M",
+            "cuBLAS",
+            "%пика",
+            "гиперформа темполятора",
+            "ТФЛОП/с",
+            "%пика",
+            "xcuBLAS",
+            "было",
+            "xвход",
+            "W8A16",
+        )
+    )
     print("-" * 150)
     agg = []
     for kn in ORDER:
@@ -68,12 +92,32 @@ def main():
             o = old.get(key, {})
             naive = o.get("naive_tflops", 0) or 0
             w8 = max(o.get("w8gemv", 0) or 0, o.get("w8hmma", 0) or 0)
-            print("%-8s %6d %6d %6d | %9.2f %6.1f%% | %-22s %8.2f %6.1f%% %8.4f | %8.4f %8.0f %8.3f" % (
-                ROLE[kn], kn[0], kn[1], M, b["cublas_tflops"], 100 * b["cublas_tflops"] / PEAK,
-                w["tag"], w["tflops"], 100 * w["tflops"] / PEAK, w["ratio_med"],
-                (o.get("volta_ratio_med", -1) if o else -1),
-                (w["tflops"] / naive) if naive > 0 else -1, w8))
-            agg.append((ROLE[kn], M, w["ratio_med"], (o.get("volta_ratio_med", -1) if o else -1)))
+            print(
+                "%-8s %6d %6d %6d | %9.2f %6.1f%% | %-22s %8.2f %6.1f%% %8.4f | %8.4f %8.0f %8.3f"
+                % (
+                    ROLE[kn],
+                    kn[0],
+                    kn[1],
+                    M,
+                    b["cublas_tflops"],
+                    100 * b["cublas_tflops"] / PEAK,
+                    w["tag"],
+                    w["tflops"],
+                    100 * w["tflops"] / PEAK,
+                    w["ratio_med"],
+                    (o.get("volta_ratio_med", -1) if o else -1),
+                    (w["tflops"] / naive) if naive > 0 else -1,
+                    w8,
+                )
+            )
+            agg.append(
+                (
+                    ROLE[kn],
+                    M,
+                    w["ratio_med"],
+                    (o.get("volta_ratio_med", -1) if o else -1),
+                )
+            )
     print()
     pre = [a for a in agg if a[1] >= 128]
     dec = [a for a in agg if a[1] < 128]
@@ -87,15 +131,22 @@ def main():
         g **= 1.0 / len(s)
         won = [x for x in s if x[2] > 1.0]
         par = [x for x in s if 0.95 <= x[2] <= 1.0]
-        print("%-16s точек %2d: %.3f..%.3f, медиана %.3f, геосреднее %.3f | >1.00: %d | 0.95-1.00: %d"
-              % (name, len(s), r[0], r[-1], r[len(r) // 2], g, len(won), len(par)))
+        print(
+            "%-16s точек %2d: %.3f..%.3f, медиана %.3f, геосреднее %.3f | >1.00: %d | 0.95-1.00: %d"
+            % (name, len(s), r[0], r[-1], r[len(r) // 2], g, len(won), len(par))
+        )
         if won:
-            print("     ВЫИГРЫШ: " + ", ".join("%s/M%d=%.3f" % (x[0], x[1], x[2]) for x in won))
+            print(
+                "     ВЫИГРЫШ: "
+                + ", ".join("%s/M%d=%.3f" % (x[0], x[1], x[2]) for x in won)
+            )
     imp = [(x[2] / x[3]) for x in agg if x[3] > 0]
     if imp:
         imp.sort()
-        print("\nПРИРОСТ К ПРЕЖНЕМУ ЗАМЕРУ (то же дерево, тот же стенд): %.3f..%.3f, медиана %.3f"
-              % (imp[0], imp[-1], imp[len(imp) // 2]))
+        print(
+            "\nПРИРОСТ К ПРЕЖНЕМУ ЗАМЕРУ (то же дерево, тот же стенд): %.3f..%.3f, медиана %.3f"
+            % (imp[0], imp[-1], imp[len(imp) // 2])
+        )
 
 
 if __name__ == "__main__":
