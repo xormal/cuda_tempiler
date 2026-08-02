@@ -1,0 +1,38 @@
+{
+  "schema": "tempo/machine/1",
+  "plugin": "sm_70",
+  "device": "Tesla V100-SXM2-32GB (GV100, Volta)",
+  "what": "Паспорт машины и КРЫШИ. Паспортное помечено SPEC и ЗАПРЕЩЕНО в границе времени; рядом стоит достижимое.",
+  "card": {"index": 1, "clock_mhz": 1530, "foreign_procs": 0, "date": "2026-08-01"},
+
+  "geometry": {
+    "sms":                 {"value": 80,    "units": "SM",            "status": "SPEC",     "note": "ВОЛНОВАЯ КВАНТИЗАЦИЯ: полезные размеры сетки кратны 80, а НЕ круглым числам. Свип по {1,2,4,6,8,12} систематически промахивал 80; попадание дало +2.4..7.7 % и первую победу над torch."},
+    "warp_slots_per_sm":   {"value": 64,    "units": "варп-слот/SM",  "status": "SPEC",     "note": ""},
+    "threads_per_warp":    {"value": 32,    "units": "нить/варп",     "status": "SPEC",     "note": ""},
+    "schedulers_per_sm":   {"value": 4,     "units": "планировщик/SM","status": "SPEC",     "note": "подтверждено свипами занятости"},
+    "fp32_lanes_per_sm":   {"value": 64,    "units": "полоса/SM",     "status": "SPEC",     "note": ""},
+    "tensor_cores_per_sm": {"value": 8,     "units": "ядро/SM",       "status": "SPEC",     "note": "нативная форма m8n8k4"},
+    "regfile_words_per_sm":{"value": 65536, "units": "слово(32б)/SM",  "status": "SPEC",     "note": ""},
+    "reg_isa_limit":       {"value": 255,   "units": "регистр/нить",   "status": "SPEC",     "note": "жёсткий потолок ISA; отдельно от потолка, задаваемого __launch_bounds__"},
+    "reg_alloc_granularity":{"value": 8,    "units": "регистр/нить",   "status": "SPEC",     "note": "256 регистров на варп"},
+    "smem_per_sm":         {"value": 98304, "units": "байт",          "status": "SPEC",     "note": "96 КБ из 128 КБ единого L1+smem"},
+    "smem_per_cta_max":    {"value": 90624, "units": "байт",          "status": "MEASURED", "note": "ИСТИННЫЙ потолок динамической разделяемой найден ИЗ ОТКАЗА ЗАПУСКА, а не из спецификации: при pad>=13 запуск отвергается => предел <= 91008 Б при истинных 90624."},
+    "banks":               {"value": 32,    "units": "банк",          "status": "SPEC",     "note": "32 x 4 байта"},
+    "clock_mhz":           {"value": 1530,  "units": "МГц",           "status": "MEASURED", "note": "закреплена -lgc 1530 и снята после. Часть СТАРЫХ таблиц проекта снята на 1350/1380 -- их числа НЕ сопоставимы напрямую."}
+  },
+
+  "peak": {
+    "tensor_dense": {"value": 125.3,  "units": "ТФЛОП/с fp16",  "status": "MEASURED", "note": "при 1530 МГц. База всех долей пика в отчётах."},
+    "hbm_read":     {"value": 841.0,  "units": "ГБ/с",          "status": "MEASURED", "note": "sum() по 256 МБ fp32"},
+    "hbm_copy":     {"value": 819.0,  "units": "ГБ/с",          "status": "MEASURED", "note": "copy_ 256 МБ fp32 -- ПЛАНИРОВАТЬ ПРОТИВ ЭТОГО, а не против 900 паспортных"},
+    "hbm_read_fp16":{"value": 774.0,  "units": "ГБ/с",          "status": "MEASURED", "note": "sum() fp16"},
+    "hbm_spec":     {"value": 900.0,  "units": "ГБ/с",          "status": "SPEC",     "note": "ПАСПОРТ. Запрещён в границе времени: даёт 47 % там, где карта даёт 52 %."},
+    "l2":           {"value": 2155.0, "units": "ГБ/с",          "status": "UPPER_BOUND", "note": "ОЦЕНКА, НЕ ЗАМЕР. Снизу ограничена 831 ГБ/с из якоря C. Вся L2-крыша модели опирается на неё -- это дыра контракта."}
+  },
+
+  "measurement_traps": [
+    "torch.uint8.sum() рапортует 47 ГБ/с: он поэлементно повышает тип и полосу НЕ меряет. Калибровать только fp32 copy_/sum.",
+    "torch.matmul на fp16 ВОЗВРАЩАЕТ fp16: суммы ~4e6 переполняют ВЫХОД при исправном fp32-накопителе, и проверка штатным matmul даёт ЛОЖНЫЙ ОТРИЦАТЕЛЬНЫЙ.",
+    "Доля ресурса != доля времени. Снятие 18.4 % трафика smem в ЭПИЛОГЕ дало 0.2 % времени; 14.5 % в МЕЙНЛУПЕ дало 7.5 % (6/6 форм)."
+  ]
+}

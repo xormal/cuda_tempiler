@@ -1,0 +1,2 @@
+{"axes": {"n_carry": 4, "n_compute": 8, "warps": 12}, "shape": "volta_fwd_ws", "predicted_us": -1.0, "measured_us": 523.2, "correct": "побитово, torch.equal", "note": "ролевое 4+8, ЗАМЕРЕНО РАНЕЕ: 1.22-1.46x к двухблочному", "source": "docs/KERNELS.ru.md"}
+{"axes": {"n_compute": 16, "collective": 1, "warps": 16}, "shape": "bwd_collective", "predicted_us": -1.0, "measured_us": 1500.0, "correct": "dV/dQ/dK fp16-точно", "note": "ОТРИЦАТЕЛЬНЫЙ: 1.50x МЕДЛЕННЕЕ torch на пределе; занятость измеренно мертва", "source": "memory/fa2-sm70-bwd-duplex512.md"}

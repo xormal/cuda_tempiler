@@ -19,7 +19,7 @@
 
 ЗАПУСК (только на ПУСТОЙ карте -- иначе инструмент сам откажется):
     FA2SM70_BUILD_DIR=./build/ext FA2_SUDO_PASS=... \
-    /opt/conda/miniconda3/envs/vllm/bin/python tools/anchor_fwd_sdpa.py --card 1
+    <TEMPO_PY> tools/anchor_fwd_sdpa.py --card 1     # <TEMPO_PY> см. tempo/cli/env.py
 
 Порядок жёсткий: гейт среды (карта пуста?) -> сборка/сверка -> фиксация частот -> прогрев ->
 раунды.  До прохождения первого шага torch даже не импортируется: отказ обязан быть бесплатным

@@ -24,7 +24,8 @@ Harness.NO_CHECK: гейт корректности здесь не отключ
 
 ЗАПУСК (только на СВОБОДНОЙ карте 0 или 1; карты 2-3 -- боевой сервер, не трогать):
 
-    FA2_SUDO_PASS=... CARD=1 /opt/conda/miniconda3/envs/vllm/bin/python phase_selfcheck_fwd_ws.py
+    FA2_SUDO_PASS=... CARD=1 $(python3 tempo/cli/env.py --json | grep TEMPO_PY) \
+        phase_selfcheck_fwd_ws.py          # интерпретатор спрашивать у tempo/cli/env.py
 
 FA2_SUDO_PASS нужен харнессу для ФИКСАЦИИ ЧАСТОТ. Без фиксации замер отменяется: на этой машине
 разброс частоты даёт до 60 %. Осознанно без неё -- LOCK=0 (результат помечается недействительным).

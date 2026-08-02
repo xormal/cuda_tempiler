@@ -69,6 +69,30 @@ import subprocess
 import sys
 import time
 
+# --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
+def _tempo_env_load():
+    import importlib.util as _u, os as _o
+
+    _p = _o.path.join(
+        _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
+    )
+    try:
+        _s = _u.spec_from_file_location("tempo_env", _p)
+        _m = _u.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        return _m
+    except Exception:  # инструмент, вынесенный из дерева, обязан остаться запускаемым
+
+        class _Stub:
+            def __getattr__(self, _n):
+                return lambda *a, **k: None
+
+        return _Stub()
+
+
+_ENV = _tempo_env_load()
+
+
 # ЛОВУШКА ОКРУЖЕНИЯ (стоила одного ложного вывода в этом же каталоге): в tempo/tools/ лежит СВОЙ
 # timeit.py. Каталог скрипта попадает в sys.path ПЕРВЫМ, и `import torch` подхватывает чужой файл.
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -86,8 +110,8 @@ def _load_mod(name, path):
 twin = _load_mod("tempo_twin", os.path.join(_HERE, "twin.py"))
 ncu = _load_mod("tempo_ncu", os.path.join(_HERE, "ncu.py"))
 
-PY = os.environ.get("TEMPO_PY", "/opt/conda/miniconda3/envs/vllm/bin/python")
-CUDA_HOME = "/opt/conda/miniconda3/envs/cuda128"
+PY = os.environ.get("TEMPO_PY") or _ENV.python_vllm() or "python3"
+CUDA_HOME = _ENV.cuda_home() or ""
 CUOBJDUMP = os.path.join(CUDA_HOME, "bin", "cuobjdump")
 DEFAULT_WORK = "./pad"
 IDENT = r"[A-Za-z_]\w*"

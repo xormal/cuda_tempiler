@@ -6,11 +6,15 @@
 import os, re, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Разборщик SASS переехал из бывшего vendor/ на сторону ПЛАГИНА (он архитектурный).
 sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "vendor")
+    0,
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "tempo", "plugins", "sm70"
+    ),
 )
 import tempo as T
-import issue_slots as IS
+import isa_sass as IS
 
 so, pat = sys.argv[1], sys.argv[2]
 CORE = (

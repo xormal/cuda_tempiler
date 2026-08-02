@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: LicenseRef-TRL-1.0
+# Copyright (c) 2026 Alexander Romanov <alex.xorm@gmail.com>
+# Tempo Research License v1.0 -- see LICENSE. Commercial use by agreement.
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tempo"
+version = "0.1.0"
+description = "Темполятор: переукладка ядер под конкретную архитектуру через плагины"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "LicenseRef-TRL-1.0" }
+authors = [{ name = "Alexander Romanov", email = "alex.xorm@gmail.com" }]
+# ЗАВИСИМОСТЕЙ НЕТ НАМЕРЕННО: конвейер и плагин обязаны работать там, где стоит только
+# стандартная библиотека. Всё, что требует стороннего -- замеры -- живёт в diag/ и bench/.
+dependencies = []
+
+[project.optional-dependencies]
+# Плагин -- это ДАННЫЕ и код архитектуры; кода сверх стандартной библиотеки он не требует.
+sm70 = []
+sm80 = []
+
+[project.scripts]
+tempo = "tempo.cli.__main__:main"
+
+[tool.setuptools]
+# АРТЕФАКТЫ (kernels/, bench/, diag/, data/) в пакет НЕ ВХОДЯТ: это данные, а не библиотека.
+packages = [
+  "tempo", "tempo.cli", "tempo.core", "tempo.core.op", "tempo.core.ir", "tempo.core.model",
+  "tempo.core.search", "tempo.core.emit", "tempo.core.measure", "tempo.core.calib",
+  "tempo.core.graph", "tempo.core.report",
+  "tempo.plugins", "tempo.plugins.sm70", "tempo.plugins.sm80", "tempo.plugins.null",
+  "tempo.plugins.nullarch", "tempo.plugins.nullarch_async", "tempo.plugins.sm70_perturbed",
+]
+
+[tool.setuptools.package-data]
+"tempo.plugins.sm70" = ["data/machine/*.json", "data/calib/*.json", "skeletons/*/*"]
+"tempo.plugins.sm80" = ["data/machine/*.json"]

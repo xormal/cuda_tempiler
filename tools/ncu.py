@@ -65,6 +65,30 @@ import shutil
 import subprocess
 import sys
 
+# --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
+def _tempo_env_load():
+    import importlib.util as _u, os as _o
+
+    _p = _o.path.join(
+        _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
+    )
+    try:
+        _s = _u.spec_from_file_location("tempo_env", _p)
+        _m = _u.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        return _m
+    except Exception:  # инструмент, вынесенный из дерева, обязан остаться запускаемым
+
+        class _Stub:
+            def __getattr__(self, _n):
+                return lambda *a, **k: None
+
+        return _Stub()
+
+
+_ENV = _tempo_env_load()
+
+
 # ЛОВУШКА ОКРУЖЕНИЯ (уже стоила одного ложного вывода в этом же каталоге): в tempo/tools/ лежит
 # СВОЙ timeit.py. Каталог скрипта попадает в sys.path ПЕРВЫМ, и любой импорт `timeit` (его делает
 # torch) подхватывает чужой файл -- тело падает ДО первой полезной строки, а ncu отдаёт пустую
@@ -84,13 +108,11 @@ FORCED_ENV = {"LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"}
 # последний -- launcher-заглушка (см. (1) в шапке).
 CANDIDATE_GLOBS = [
     os.environ.get("TEMPO_NCU", ""),  # явное указание владельца
-    "/opt/conda/miniconda3/pkgs/nsight-compute-*/nsight-compute/*/ncu",
-    "/opt/conda/miniconda3/pkgs/nsight-compute-*/nsight-compute-*/ncu",
-    "/opt/conda/miniconda3/pkgs/nsight-compute-*/bin/ncu",
+    *(_ENV.ncu_candidates() or []),
     "/opt/nvidia/nsight-compute/*/ncu",
     "/usr/local/cuda*/nsight-compute*/ncu",
     "/usr/local/cuda*/bin/ncu",
-    "/opt/conda/miniconda3/envs/*/bin/ncu",  # заведомо подозрительные
+    # прочие кандидаты (в т.ч. заведомо подозрительные envs/*/bin/ncu) даёт _ENV
 ]
 
 # Метрики маршрута А (итог на запуск).
@@ -184,7 +206,7 @@ def build_canary():
     if os.path.exists(out):
         return out
     nvcc = os.path.join(
-        os.environ.get("CUDA_HOME", "/opt/conda/miniconda3/envs/cuda128"), "bin", "nvcc"
+        os.environ.get("CUDA_HOME") or _ENV.cuda_home() or "", "bin", "nvcc"
     )
     if not os.path.exists(nvcc):
         return None
@@ -1239,7 +1261,7 @@ def build_synth():
     if os.path.exists(out):
         return out
     nvcc = os.path.join(
-        os.environ.get("CUDA_HOME", "/opt/conda/miniconda3/envs/cuda128"), "bin", "nvcc"
+        os.environ.get("CUDA_HOME") or _ENV.cuda_home() or "", "bin", "nvcc"
     )
     os.makedirs(os.path.dirname(out), exist_ok=True)
     p = _run(
@@ -1308,10 +1330,14 @@ def selftest_synth(verbose=True):
 
 
 def selftest(body="bwd", bankaudit=None, py=None, build_dir=None, verbose=True):
-    py = py or os.environ.get("TEMPO_PY", "/opt/conda/miniconda3/envs/vllm/bin/python")
+    py = py or os.environ.get("TEMPO_PY") or _ENV.python_vllm() or "python3"
+    # Тело якоря лежит рядом с этим файлом.  ЗДЕСЬ БЫЛ ДЕФЕКТ: путь стоял как
+    # "./.cachescratchpad/bankaudit.py" -- след чужой пакетной правки.  Он не всплывал, потому
+    # что самопроверка падала РАНЬШЕ, на интерпретаторе из /opt/conda.  Правило проекта:
+    # читать ПЕРВУЮ строку трассы -- вторая ошибка прячется за первой.
     bankaudit = bankaudit or os.environ.get(
         "TEMPO_BANKAUDIT",
-        "./.cachescratchpad/bankaudit.py",
+        os.path.join(_HERE_DIR, "bankaudit.py"),
     )
     wenv = {
         "CUDA_VISIBLE_DEVICES": os.environ.get("CUDA_VISIBLE_DEVICES", "0"),

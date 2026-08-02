@@ -49,6 +49,30 @@ import re
 import subprocess
 import sys
 
+# --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
+def _tempo_env_load():
+    import importlib.util as _u, os as _o
+
+    _p = _o.path.join(
+        _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
+    )
+    try:
+        _s = _u.spec_from_file_location("tempo_env", _p)
+        _m = _u.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        return _m
+    except Exception:  # инструмент, вынесенный из дерева, обязан остаться запускаемым
+
+        class _Stub:
+            def __getattr__(self, _n):
+                return lambda *a, **k: None
+
+        return _Stub()
+
+
+_ENV = _tempo_env_load()
+
+
 WORD = 4
 BANKS = 32
 LANES = 32
@@ -57,7 +81,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPO = os.path.dirname(HERE)
 DEFAULT_ROOT = "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade"
 CUTLASS_INC = os.path.join(DEFAULT_ROOT, "fa2_src/cutlass/include")
-CUDA_INC = "/opt/conda/miniconda3/envs/cuda128/targets/x86_64-linux/include"
+CUDA_INC = _ENV.cuda_include() or ""
 
 SIZEOF = {
     "char": 1,

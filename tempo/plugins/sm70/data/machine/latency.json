@@ -1,0 +1,23 @@
+{
+  "schema": "tempo/machine/1",
+  "plugin": "sm_70",
+  "what": "Задержки для RecMII (максимум по циклам графа зависимостей).",
+  "card": {"index": 1, "clock_mhz": 1530, "foreign_procs": 0, "date": "2026-08-01"},
+  "taken_with": {"tool": "tools/probe.cu (лестница зависимых цепей c1..c32)", "counter": null, "version": "M2"},
+  "observability": "clean",
+  "latency": {
+    "FFMA":  {"value": 4.0,   "status": "MEASURED", "note": "то же для FADD/FMUL/IADD3/LOP3/PRMT/SEL/MOV/ISETP"},
+    "IADD3": {"value": 4.0,   "status": "MEASURED", "note": ""},
+    "LOP3":  {"value": 4.0,   "status": "MEASURED", "note": "разности c32-c16 и c16-c8"},
+    "IMAD":  {"value": 6.0,   "status": "MEASURED", "note": ""},
+    "MUFU":  {"value": 12.0,  "status": "MEASURED", "note": ""},
+    "LDS":   {"value": 26.0,  "status": "MEASURED", "note": "тело s1x32 при ОДНОМ варпе -- иначе меряется пропускная, а не задержка"},
+    "SHFL":  {"value": 26.0,  "status": "MEASURED", "note": "тот же канал MIO"},
+    "STS":   {"value": 4.0,   "status": "MEASURED", "note": ""},
+    "STG":   {"value": 4.0,   "status": "MEASURED", "note": ""},
+    "LDC":   {"value": 20.0,  "status": "MEASURED", "note": "постоянная память при ОДИНАКОВОМ адресе; на расходящихся полосах СЕРИАЛИЗУЕТСЯ -- обвал в 16..56 раз, это НЕ задержка, а другой режим"},
+    "S2R":   {"value": 20.0,  "status": "MEASURED", "note": ""},
+    "LDG":   {"value": 400.0, "status": "MODEL",    "note": "ДЫРА КОНТРАКТА: стендом не снята, а правит всю глобальную часть. Порядок [spec]: 400-800 тактов, L2 ~200."},
+    "HMMA":  {"value": 8.0,   "status": "UPPER_BOUND", "note": "ОЦЕНКА СВЕРХУ, намеренно НЕ привязана в калибровке. На период почти не влияет."}
+  }
+}

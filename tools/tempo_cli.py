@@ -49,16 +49,40 @@ import shutil
 import subprocess
 import sys
 
+# --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
+def _tempo_env_load():
+    import importlib.util as _u, os as _o
+
+    _p = _o.path.join(
+        _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
+    )
+    try:
+        _s = _u.spec_from_file_location("tempo_env", _p)
+        _m = _u.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        return _m
+    except Exception:  # инструмент, вынесенный из дерева, обязан остаться запускаемым
+
+        class _Stub:
+            def __getattr__(self, _n):
+                return lambda *a, **k: None
+
+        return _Stub()
+
+
+_ENV = _tempo_env_load()
+
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DATA = os.path.join(ROOT, "data")
 
 PY_SYS = shutil.which("python3") or sys.executable
-PY_VLLM = "/opt/conda/miniconda3/envs/vllm/bin/python"
+PY_VLLM = _ENV.python_vllm() or "python3"
 REPO = "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade"
-CUDA_HOME = "/opt/conda/miniconda3/envs/cuda128"
+CUDA_HOME = _ENV.cuda_home() or ""
 NCU_GOOD = (
-    "/opt/conda/miniconda3/pkgs/nsight-compute-2024.1.1.4-0/nsight-compute/2024.1.1/ncu"
+    _ENV.ncu() or "ncu"
 )
 
 

@@ -45,10 +45,15 @@ import os
 import re
 import sys
 
+# Разборщик SASS переехал из бывшего vendor/ на сторону ПЛАГИНА (он архитектурный):
+# tempo/plugins/sm70/isa_sass.py. Имя IS сохранено, тело файла не изменялось.
 sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "vendor")
+    0,
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "tempo", "plugins", "sm70"
+    ),
 )
-import issue_slots as IS  # noqa: E402  (вендорено из fa2_sm70_cutlass_grade/tools/)
+import isa_sass as IS  # noqa: E402  (вендорено из fa2_sm70_cutlass_grade/tools/)
 
 SCHEDULERS = 4
 

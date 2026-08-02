@@ -65,6 +65,30 @@ import sys
 import tempfile
 import time
 
+# --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
+def _tempo_env_load():
+    import importlib.util as _u, os as _o
+
+    _p = _o.path.join(
+        _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
+    )
+    try:
+        _s = _u.spec_from_file_location("tempo_env", _p)
+        _m = _u.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        return _m
+    except Exception:  # инструмент, вынесенный из дерева, обязан остаться запускаемым
+
+        class _Stub:
+            def __getattr__(self, _n):
+                return lambda *a, **k: None
+
+        return _Stub()
+
+
+_ENV = _tempo_env_load()
+
+
 # --------------------------------------------------------------------------------------------
 # 0. Железо sm_70 (константы, не подгоняемые)
 # --------------------------------------------------------------------------------------------
@@ -80,7 +104,7 @@ SMEM_PER_SM = 96 * 1024
 REG_ISA_MAX = 255
 SPILL_KNEE = 7  # R_required = MaxLive + 7 (замерено, data/knee_fit.txt)
 
-CUDA_HOME_DEFAULT = "/opt/conda/miniconda3/envs/cuda128"
+CUDA_HOME_DEFAULT = _ENV.cuda_home() or ""
 REPO_DEFAULT = "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade"
 
 
@@ -130,8 +154,7 @@ def profile_fa2(repo=REPO_DEFAULT, cuda_home=CUDA_HOME_DEFAULT):
     """Профиль боевой сборки backward/prefill (снят с build.ninja торчевого JIT)."""
     torch_inc = _first_existing(
         [
-            "/opt/conda/miniconda3/envs/py311/lib/python3.11/site-packages/torch/include",
-            "/opt/conda/miniconda3/envs/vllm/lib/python3.11/site-packages/torch/include",
+            *(_ENV.torch_includes() or []),
         ]
     )
     inc = [

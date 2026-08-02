@@ -19,12 +19,47 @@ import os
 import subprocess
 import sys
 
+# ЗАТЕНЕНИЕ СТАНДАРТНОГО МОДУЛЯ -- МИНА, СРАБОТАВШАЯ ЗДЕСЬ 2026-08-02.
+# `tools/timeit.py` -- наш инструмент, а `timeit` -- модуль стандартной библиотеки. Когда этот
+# файл запускается напрямую, его каталог становится sys.path[0], и `import timeit` ВНУТРИ torch
+# подхватывает НАШ файл: тело падает ImportError ДО первой полезной строки, а профилировщик
+# отдаёт пустую таблицу, которая читается как «конфликтов нет».
+# Тот же приём уже стоит в tools/ncu.py -- здесь он был пропущен.
+_HERE_DIR = os.path.dirname(os.path.abspath(__file__))
+if __name__ == "__main__":  # как БИБЛИОТЕКУ нас импортируют ИЗ этого каталога -- не рубить
+    sys.path[:] = [q for q in sys.path if os.path.abspath(q or ".") != _HERE_DIR]
+
+# --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
+def _tempo_env_load():
+    import importlib.util as _u, os as _o
+
+    _p = _o.path.join(
+        _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
+    )
+    try:
+        _s = _u.spec_from_file_location("tempo_env", _p)
+        _m = _u.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        return _m
+    except Exception:  # инструмент, вынесенный из дерева, обязан остаться запускаемым
+
+        class _Stub:
+            def __getattr__(self, _n):
+                return lambda *a, **k: None
+
+        return _Stub()
+
+
+_ENV = _tempo_env_load()
+
+
 # ИМЕННО ЭТОТ путь, а не .../bin/ncu: тот launcher отвечает "Nsight Compute is not installed"
 # и даёт ПУСТОЙ вывод, который таблица читала как "конфликтов нет". 2025.x на Volta не работает.
 NCU = (
-    "/opt/conda/miniconda3/pkgs/nsight-compute-2024.1.1.4-0/nsight-compute/2024.1.1/ncu"
+    _ENV.ncu()
+    or "ncu"
 )
-PY = "/opt/conda/miniconda3/envs/vllm/bin/python"
+PY = _ENV.python_vllm() or "python3"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 METRICS = ",".join(
@@ -117,6 +152,8 @@ def parse(csv_text):
     """ncu --csv: одна строка на (ядро, метрика). Складываем по ядрам."""
     import csv
     import io
+
+
 
     rows = list(csv.reader(io.StringIO(csv_text)))
     hdr = None

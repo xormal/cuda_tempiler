@@ -34,11 +34,16 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Разборщик SASS переехал из бывшего vendor/ на сторону ПЛАГИНА (он архитектурный):
+# tempo/plugins/sm70/isa_sass.py. Имя IS сохранено, тело файла не изменялось.
 sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "vendor")
+    0,
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "tempo", "plugins", "sm70"
+    ),
 )
 import tempo as T  # noqa: E402
-import issue_slots as IS  # noqa: E402
+import isa_sass as IS  # noqa: E402
 
 REG_BUDGET = 255  # предел ISA на нить
 

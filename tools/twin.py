@@ -65,16 +65,40 @@ import shutil
 import subprocess
 import sys
 
+# --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
+def _tempo_env_load():
+    import importlib.util as _u, os as _o
+
+    _p = _o.path.join(
+        _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
+    )
+    try:
+        _s = _u.spec_from_file_location("tempo_env", _p)
+        _m = _u.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        return _m
+    except Exception:  # инструмент, вынесенный из дерева, обязан остаться запускаемым
+
+        class _Stub:
+            def __getattr__(self, _n):
+                return lambda *a, **k: None
+
+        return _Stub()
+
+
+_ENV = _tempo_env_load()
+
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUT_ROOT = os.path.abspath(os.path.join(HERE, "..", "profiled"))
 # Боевое дерево этого проекта. ТОЛЬКО ЧТЕНИЕ: инструмент в него не пишет ни байта.
 DEFAULT_ROOT = "../VLLM_fa2/solutions/fa2_sm70_cutlass_grade"
 
-NVCC = "/opt/conda/miniconda3/envs/cuda128/bin/nvcc"
-CUOBJDUMP = "/opt/conda/miniconda3/envs/cuda128/bin/cuobjdump"
+NVCC = _ENV.nvcc() or "nvcc"
+CUOBJDUMP = _ENV.cuobjdump() or "cuobjdump"
 # Окружение сборки на этой машине. Наложение может переопределить его через build.env.
 DEFAULT_ENV = {
-    "CUDA_HOME": "/opt/conda/miniconda3/envs/cuda128",
+    "CUDA_HOME": _ENV.cuda_home() or "",
     "CC": "/usr/bin/gcc",
     "CXX": "/usr/bin/g++",
     "CUDAHOSTCXX": "/usr/bin/g++",

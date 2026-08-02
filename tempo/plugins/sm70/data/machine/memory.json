@@ -1,0 +1,40 @@
+{
+  "schema": "tempo/machine/1",
+  "plugin": "sm_70",
+  "what": "Уровни памяти и их задержки. Задержки -- [spec, порядок]; полосы -- замер.",
+  "card": {"index": 1, "clock_mhz": 1530, "foreign_procs": 0, "date": "2026-08-01"},
+
+  "levels": [
+    {"name": "reg",   "bytes": 262144, "bytes_status": "SPEC",     "bw": 0.0,    "bw_status": "NOT_MEASURED", "lat": 0.0,   "lat_status": "SPEC",  "note": "65536 слов x 4 Б на SM"},
+    {"name": "smem",  "bytes": 98304,  "bytes_status": "SPEC",     "bw": 0.0,    "bw_status": "MODEL",        "lat": 26.0,  "lat_status": "MEASURED", "note": "полоса выражена НЕ в байтах, а в вайвфронтах: 1 вф/такт/SM (см. mio.json)"},
+    {"name": "l2",    "bytes": 6291456,"bytes_status": "SPEC",     "bw": 2155.0, "bw_status": "UPPER_BOUND",  "lat": 200.0, "lat_status": "SPEC",  "note": "6 МБ. Полоса -- ОЦЕНКА, не замер."},
+    {"name": "hbm",   "bytes": 34359738368, "bytes_status": "SPEC","bw": 819.0,  "bw_status": "MEASURED",     "lat": 400.0, "lat_status": "MODEL", "note": "32 ГБ. Полоса -- copy_ fp32; задержка НЕ снята стендом."}
+  ],
+
+  "alignment_rule": {
+    "law": "широкая запись/чтение законны ТОЛЬКО при шаге строки, кратном ШИРИНЕ ДОСТУПА В БАЙТАХ",
+    "status": "MEASURED",
+    "gotcha": "Проверять шаг В БАЙТАХ, а не в элементах. Дополнение LD=BK+4 даёт бесконфликтные 8-байтовые доступы, но ЗАПРЕЩАЕТ 16-байтовые -- отсюда XOR-свизл."
+  },
+
+  "residency_policy": {
+    "value": "lru",
+    "status": "MODEL",
+    "note": "L2 моделируется ИДЕАЛЬНЫМ LRU. На sm_80 появляется cudaAccessPolicyWindow, и это ЕДИНСТВЕННОЕ место, где перенос потребует НОВОГО КОДА в core/model/residency.py, а не новых данных."
+  },
+
+  "l2_hit_measured_bodies": {
+    "note": "ЭТО ВЕЛИЧИНА ТЕЛА, А НЕ МАШИНЫ -- в плагин кладётся как калибровка, в границу не входит.",
+    "prefill_d128_S4096_H4": 97.70,
+    "backward_d256": 55.9,
+    "handwritten_gemm": 90.3,
+    "units": "% попаданий",
+    "tool": "ncu",
+    "model_reproduces": "97.70 -> 97.71 (расхождение 0.01 п.п.)"
+  },
+
+  "traffic_is_not_latency": {
+    "status": "MEASURED",
+    "note": "Round-trip накопителя dK/dV = ~90 % всего трафика DRAM (1245 МБ против 58.7 МБ тензоров, x21); его ПОЛОВИНЕНИЕ дало +5.7 % там, где полосно-связанное ядро дало бы ~40 %. При 8 варпах перекрывать ожидание НЕЧЕМ."
+  }
+}
