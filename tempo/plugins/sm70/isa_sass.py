@@ -656,6 +656,15 @@ def width_of(it):
 #     то есть таблица различает эти два случая ЗАМЕРОМ, а не рассуждением.
 _ADDR64_BASES = ("LDG", "STG", "LD", "ST", "RED", "ATOM", "ATOMG")
 REG_TENSOR_TUPLE = 2  # HMMA.884: D, A, B, C -- все ПАРЫ
+# ШИРИНЫ, НАЗВАННЫЕ ОТДЕЛЬНО, ПОТОМУ ЧТО ИМИ СЧИТАЕТ НЕ ТОЛЬКО РАЗБОРЩИК.  Та же таблица нужна
+# ОТСЕКАТЕЛЮ, который считает регистры ДО СБОРКИ, по структуре скелета (gemm_bound.regs_estimate):
+# у него нет машинного кода, но ЯЧЕЙКИ он обязан считать теми же, иначе две модели одного
+# продукта разойдутся молча.  Числа здесь и проверяются здесь же -- `align_violations` ловит
+# ошибку в любом из них машинным кодом, и её увидят ОБЕ модели сразу.
+REG_W128 = 4  # 128-разрядное значение (порция подачи, фрагмент)
+REG_W64 = 2  # 64-разрядное значение
+REG_ADDR_GLOBAL = 2  # адрес в глобальном/общем пространстве -- ПАРА
+REG_ADDR_SHARED = 1  # адрес в разделяемом/локальном -- один
 
 
 def reg_span(it):
@@ -666,13 +675,13 @@ def reg_span(it):
     получить либо призрачные регистры, либо потерянные.
     """
     if it.cls == TENSOR:
-        return (REG_TENSOR_TUPLE, REG_TENSOR_TUPLE, 1)
-    addr = 2 if it.base in _ADDR64_BASES else 1
+        return (REG_TENSOR_TUPLE, REG_TENSOR_TUPLE, REG_ADDR_SHARED)
+    addr = REG_ADDR_GLOBAL if it.base in _ADDR64_BASES else REG_ADDR_SHARED
     if it.cls in MEM_OPS:
-        w = 4 if ".128" in it.text else (2 if ".64" in it.text else 1)
+        w = REG_W128 if ".128" in it.text else (REG_W64 if ".64" in it.text else 1)
         return (w, w, addr)
     if ".WIDE" in it.op:  # ПАРА только у приёмника: множители 32-разрядны
-        return (2, 1, addr)
+        return (REG_W64, 1, addr)
     return (1, 1, addr)
 
 

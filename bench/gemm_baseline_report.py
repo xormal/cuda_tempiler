@@ -16,7 +16,7 @@ import os
 import statistics
 import sys
 
-D = "/mnt/d1/alex/tempo/data"
+D = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 
 
 def geo(v):
@@ -253,7 +253,7 @@ def main():
                 f"-- то есть МЕДЛЕННЕЕ fp16"
             )
         P(
-            f"  посылка наряда «x1.85» -- это HMMA/DP4A (обе величины целочисленные), а НЕ int8/fp16."
+            "  посылка наряда «x1.85» -- это HMMA/DP4A (обе величины целочисленные), а НЕ int8/fp16."
         )
     else:
         P("  (data/int8_roof.json не найден -- запустить bench/int8_roof.py)")

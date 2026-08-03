@@ -118,6 +118,8 @@
  },
  "peak_tflops_1530": 125.3,
  "source_md5": "418932d53b53aebdb55efe304cf1c936",
+ "source_md5_of": "kernel.cuh",
+ "source_md5_note": "отпечаток покрывает ОДИН файл поставки из четырёх; launch.cuh, launch.cu и dispatch.inc им НЕ подписаны -- это названный пробел, а не умолчание (задача 155)",
  "date": "2026-08-02",
  "license": "LicenseRef-TRL-1.0",
  "contact": "alex.xorm@gmail.com",

@@ -264,7 +264,11 @@ class NullarchResources:
         limiter = "regs" if by_reg <= by_smem else "smem"
         return Occupancy(int(w), int(w // warps_per_cta), int(regs), limiter)
 
-    def verdict(self, regs, max_live, smem_bytes, threads):
+    def verdict(self, regs, max_live, smem_bytes, threads, min_ctas_per_sm=1):
+        # ОБЪЯВЛЕННАЯ РЕЗИДЕНТНОСТЬ У ПОДСТАВНОЙ АРХИТЕКТУРЫ НЕ ОБЪЯВЛЯЕТСЯ ВОВСЕ, и это ЧАСТЬ
+        # ФАЛЬСИФИКАТОРА, а не упрощение: поле контракта обязано быть таким, чтобы плагин без
+        # него оставался законным.  Здесь бюджет назначает занятость, и вывод конвейера
+        # обязан от этого отличаться -- ровно то, что проверяют G3 и G8.
         occ = self.occupancy(regs, smem_bytes, threads)
         if smem_bytes > SMEM_PER_CTA_MAX:
             return ResourceVerdict(

@@ -159,6 +159,48 @@ def t_oracle_gate_blocks_timing():
     raise AssertionError("секундомер не был запрещён при непройденном гейте")
 
 
+def t_oracle_small_rell2_is_not_enough():
+    """LAW=L-RELL2-NECESSARY-NOT-SUFFICIENT.  ПАДАЮЩАЯ ПРОВЕРКА ЗАКОНА.
+
+    ЧТО ИМЕННО ОНА ЛОВИТ.  Встроенная сверка считает эталон НА ТЕХ ЖЕ собранных данных, поэтому
+    ошибку СБОРКИ (раскладка, чужой вход, не тот кусок графа) она не видит: на дефекте 145 она
+    показывала 2e-4 всё время, пока сетка несла мусор.  Значит идеальный relL2 НЕ ВПРАВЕ пускать
+    секундомер сам по себе; пускает его только сверка с ЧУЖИМ путём, у которой НАЗВАНО, чем этот
+    путь отличается.  Убрать закон -- значит вернуть `ok` к «значения сошлись», и тогда первый же
+    из трёх случаев ниже пройдёт молча.
+    """
+    from tempo.core.measure.correctness import must_pass_before_timing
+    from tempo.core.op.oracle import gate
+
+    точно = [1.0, 2.0, 3.0]
+    # 1. ЗНАЧЕНИЯ СОШЛИСЬ ТОЧНО, чужого пути НЕТ -- секундомер обязан остаться запрещён.
+    res = gate(точно, точно, tol=1e-6)
+    assert res.necessary_ok, "необходимое условие обязано выполняться: значения совпали"
+    assert not res.ok, "нулевой relL2 БЕЗ чужого пути выдал разрешение на секундомер"
+    try:
+        must_pass_before_timing(res)
+    except AssertionError as e:
+        assert "НЕОБХОДИМОЕ, НЕ ДОСТАТОЧНОЕ" in str(e), str(e)
+    else:
+        raise AssertionError("секундомер разрешён по одной лишь сверке значений")
+
+    # 2. ЧУЖОЙ ПУТЬ ПОСЧИТАН, НО НЕ НАЗВАН -- это вторая сверка того же самого.
+    res2 = gate(точно, точно, tol=1e-6, independent=точно)
+    assert not res2.ok, "безымянный «чужой путь» засчитан за ломку симметрии"
+    assert "ЧУЖОЙ ПУТЬ НЕ НАЗВАН" in res2.render()
+
+    # 3. НАЗВАН И СОШЁЛСЯ -- только теперь проход.
+    res3 = gate(
+        точно,
+        точно,
+        tol=1e-6,
+        independent=точно,
+        independent_path="счёт в двойной точности на разрежённой выборке ячеек",
+    )
+    assert res3.ok, res3.render()
+    must_pass_before_timing(res3)
+
+
 def t_oracle_speedup_needs_pair():
     """Метрика «против входа» ЧЕСТНА, но в одиночку -- самообман."""
     from tempo.core.measure.baseline import Baseline, Comparison, two_bars_required
@@ -314,6 +356,10 @@ CASES = [
     ("покрытие ловит ЧЕТВЕРТЬ плитки", t_coverage_catches_quarter_tile),
     ("покрытие ловит двойной счёт", t_coverage_catches_double_count),
     ("гейт корректности ЗАПРЕЩАЕТ секундомер", t_oracle_gate_blocks_timing),
+    (
+        "малый relL2 -- НЕОБХОДИМОЕ условие, не достаточное",
+        t_oracle_small_rell2_is_not_enough,
+    ),
     ("одна планка не проходит: нужны ДВЕ", t_oracle_speedup_needs_pair),
     (
         "число без происхождения не попадает в отчёт",

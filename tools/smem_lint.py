@@ -43,6 +43,7 @@
     python tools/smem_lint.py --kernel volta_fwd_ws <корень>
 """
 
+import hashlib
 import math
 import os
 import re
@@ -52,7 +53,8 @@ import sys
 
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
-    import importlib.util as _u, os as _o
+    import importlib.util as _u
+    import os as _o
 
     _p = _o.path.join(
         _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
@@ -300,6 +302,22 @@ class Unresolved(Exception):
 LOOP_BOUND = {}
 
 
+def text_key(s):
+    """КЛЮЧ ТАБЛИЦЫ ПО СОДЕРЖИМОМУ, А НЕ ПО АДРЕСУ (LAW=L-CACHE-KEY-BY-CONTENT).
+
+    Прежняя редакция ключевала `LOOP_BOUND` и `_INST_INDEX` через `id(...)` от строки, которой
+    таблица НЕ ВЛАДЕЕТ: срез `src[b0:b1]` живёт ровно до конца итерации, распределитель отдаёт
+    тот же адрес следующему срезу, и таблица возвращает границы ЧУЖОЙ функции. Это в точности
+    дефект задачи #137 (ключ -- сырой указатель на объект, которым таблица не владеет; подпись
+    там была relL2 = sqrt(2), то есть «вернули совсем другое»), только на строках, а не на
+    тензорах. Такая ошибка не падает и не сигналит -- она ОТВЕЧАЕТ, и отвечает неверно.
+
+    Ключ по содержимому этого класса не имеет по построению: совпал ключ -- совпало содержимое,
+    и запись законна независимо от того, жив ли исходный объект.
+    """
+    return hashlib.md5(s.encode("utf-8", "replace")).hexdigest()
+
+
 def build_env(body, consts):
     """имя -> [(позиция, выражение)]. ПОЗИЦИЯ ОБЯЗАТЕЛЬНА.
 
@@ -307,7 +325,8 @@ def build_env(body, consts):
     `c0` в мейнлупе -- два разных выражения). Версия «первое определение выигрывает» молча брала
     чужое и выдавала уверенный НЕВЕРНЫЙ адрес. Берётся ближайшее определение ВЫШЕ обращения.
     """
-    LOOP_BOUND[id(body)] = {}
+    bkey = text_key(body)
+    LOOP_BOUND[bkey] = {}
     env = {k: [(-1, v)] for k, v in consts.items()}
 
     def add(name, expr, pos):
@@ -328,7 +347,7 @@ def build_env(body, consts):
         r"for\s*\(\s*(?:int|unsigned)\s+(\w+)\s*=\s*([^;]+);\s*\1\s*<\s*([^;]+);", body
     ):
         add(m.group(1), m.group(2), m.start())  # счётчик цикла: варп-однороден
-        LOOP_BOUND.setdefault(id(body), {}).setdefault(m.group(1), []).append(
+        LOOP_BOUND.setdefault(bkey, {}).setdefault(m.group(1), []).append(
             (m.start(), m.group(2).strip(), m.group(3).strip())
         )
     for m in re.finditer(r"for\s*\(\s*(?:int|unsigned)\s+(\w+)\s*=\s*([^;]+);", body):
@@ -602,7 +621,7 @@ def inst_args_index(tree_src, names):
     имя, и линтер вставал на kernel_backward.h -- инструмент, который не доходит до конца, это не
     «медленный инструмент», а ОТСУТСТВУЮЩИЙ ответ.
     """
-    key = (id(tree_src), frozenset(names))
+    key = (text_key(tree_src), frozenset(names))
     if key in _INST_INDEX:
         return _INST_INDEX[key]
     out = {n: [] for n in names}
@@ -807,7 +826,7 @@ def scan_source(path, consts_global, tree_src=""):
                 # железо видит ОДНО широкое. Без этого ПОЛ занижается, и минимальный ТРАФИК
                 # объявляется конфликтом -- ровно ошибка, из-за которой чистый декод (замер 1.2 %)
                 # выглядел бы грязным.
-                bounds = LOOP_BOUND.get(id(body), {})
+                bounds = LOOP_BOUND.get(text_key(body), {})
                 results, fail = [], None
                 for s in sets:
                     ov = {k: [(-1, str(v))] for k, v in s.items()}

@@ -45,7 +45,7 @@ from tempo.core import laws as L  # noqa: E402
 
 # Каталог отчётов лежит ВНЕ дерева продукта намеренно: отчёт -- запись о замере, а не исходник.
 # Путь -- умолчание, а не вшитая зависимость: без каталога инструмент ПРОПУСКАЕТ с причиной.
-DEFAULT_REPORTS = os.environ.get("TEMPO_REPORTS", "/mnt/d1/alex/reports")
+DEFAULT_REPORTS = os.environ.get("TEMPO_REPORTS", os.path.join(_ROOT, "reports"))
 
 BLOCK_OPEN = "<!--LAW"
 BLOCK_CLOSE = "-->"

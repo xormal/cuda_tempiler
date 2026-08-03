@@ -11,7 +11,12 @@
   python3 bench/tempolate_gemm.py --shape 3840:15360 --m 2048 --top 48
 """
 
-import argparse, json, os, re, subprocess, sys, time
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -20,7 +25,7 @@ sys.path.insert(0, ROOT)
 from tempo.plugins.sm70.gemm_bound import Hyperform, bound_tflops, occupancy  # noqa: E402
 
 SKEL = os.path.join(ROOT, "tempo", "plugins", "sm70", "skeletons", "gemm_hmma884")
-CUDA_HOME = os.environ.get("CUDA_HOME", "/home/alex/miniconda3/envs/cuda128")
+CUDA_HOME = os.environ.get("CUDA_HOME", "/opt/conda")
 NVCC = os.path.join(CUDA_HOME, "bin", "nvcc")
 
 
@@ -176,7 +181,7 @@ def main():
     ap.add_argument("--rounds", type=int, default=5)
     ap.add_argument("--dev", type=int, default=0)
     ap.add_argument("--wide", action="store_true")
-    ap.add_argument("--out", default="/tmp/tempo_gemm")
+    ap.add_argument("--out", default="build/tempo_gemm")
     ap.add_argument("--json", default="")
     a = ap.parse_args()
     K, N = map(int, a.shape.split(":"))

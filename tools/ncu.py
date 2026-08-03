@@ -68,7 +68,8 @@ import sys
 
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
-    import importlib.util as _u, os as _o
+    import importlib.util as _u
+    import os as _o
 
     _p = _o.path.join(
         _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
@@ -201,9 +202,22 @@ CANARY_BIN = os.path.join(
 )
 
 
+def _src_digest(text):
+    """Отпечаток ИСХОДНИКА -- он и есть имя собранного (LAW=L-CACHE-KEY-BY-CONTENT)."""
+    import hashlib
+
+    return hashlib.md5(text.encode("utf-8", "replace")).hexdigest()[:8]
+
+
 def build_canary():
-    """Собрать канарейку (один раз). Не собралась -- вернуть None, а НЕ притвориться, что всё ок."""
-    out = os.path.abspath(CANARY_BIN)
+    """Собрать канарейку (один раз). Не собралась -- вернуть None, а НЕ притвориться, что всё ок.
+
+    ИМЯ СОБРАННОГО НЕСЁТ ОТПЕЧАТОК ИСХОДНИКА.  Прежняя редакция брала «файл по этому пути уже
+    есть» за «собрано то, что нужно»: правка CANARY_SRC не меняла ни пути, ни времени решения, и
+    прибор молча мерил ПРОШЛУЮ канарейку.  Ключ по содержимому снимает вопрос целиком -- другой
+    исходник даёт другое имя, и старое остаётся лежать без вреда.
+    """
+    out = os.path.abspath(CANARY_BIN) + "." + _src_digest(CANARY_SRC)
     if os.path.exists(out):
         return out
     nvcc = os.path.join(
@@ -1248,16 +1262,23 @@ SYNTH = {
 
 
 def build_synth():
+    """ИМЯ СОБРАННОГО НЕСЁТ ОТПЕЧАТОК ИСХОДНИКА (LAW=L-CACHE-KEY-BY-CONTENT): «файл есть» не
+    означает «собрано из ЭТОГО исходника», а прибор меряет то, что лежит."""
+    src = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "ncu_conflict_canary.cu"
+    )
+    try:
+        with open(src, encoding="utf-8", errors="replace") as fh:
+            stamp = _src_digest(fh.read())
+    except OSError as e:
+        raise NcuError("исходник канарейки конфликтов не читается: %s" % e)
     out = os.path.abspath(
         os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "..",
             "build",
-            "ncu_conflict_canary",
+            "ncu_conflict_canary." + stamp,
         )
-    )
-    src = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "ncu_conflict_canary.cu"
     )
     if os.path.exists(out):
         return out

@@ -17,6 +17,7 @@ FA2SM70_EXTRA_NVCC="-I<двойник>" -- НЕ РАБОТАЕТ И МОЛЧА �
 команд). Замер времени -- отдельным прогоном владельца на свободной карте.
 """
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -24,7 +25,8 @@ import sys
 
 # --- ПУТИ ОКРУЖЕНИЯ: единственное место -- tempo/cli/env.py (правило Р8 спецификации) ---
 def _tempo_env_load():
-    import importlib.util as _u, os as _o
+    import importlib.util as _u
+    import os as _o
 
     _p = _o.path.join(
         _o.path.dirname(_o.path.abspath(__file__)), "..", "tempo", "cli", "env.py"
@@ -64,9 +66,6 @@ def build(mask, seal=1, extra=()):
     os.environ.setdefault("CXX", "/usr/bin/g++")
     from torch.utils.cpp_extension import load
 
-    name = "fa2_bwd_phase_m%d" % mask
-    bdir = os.path.join(BUILD, name)
-    os.makedirs(bdir, exist_ok=True)
     flags = [
         "-O3",
         "-std=c++17",
@@ -85,6 +84,15 @@ def build(mask, seal=1, extra=()):
         "-Xptxas",
         "-v",
     ] + list(extra)
+    # ИМЯ РАСШИРЕНИЯ -- КЛЮЧ СРАЗУ ДВУХ ТАБЛИЦ, КОТОРЫМИ МЫ НЕ ВЛАДЕЕМ (LAW=L-CACHE-KEY-BY-CONTENT):
+    # каталога сборки ninja и таблицы уже загруженных модулей процесса.  Прежняя редакция брала в
+    # ключ ТОЛЬКО mask, а seal и extra в него не входили: две сборки с разными флагами получали одно
+    # имя, и вторая молча возвращала ПЕРВЫЙ модуль -- тот же класс дефекта, что ключ по чужому
+    # указателю (задача #137).  Ключ обязан покрывать ВСЁ, что меняет содержимое собранного.
+    key = hashlib.md5(("|".join(flags)).encode("utf-8", "replace")).hexdigest()[:8]
+    name = "fa2_bwd_phase_m%d_%s" % (mask, key)
+    bdir = os.path.join(BUILD, name)
+    os.makedirs(bdir, exist_ok=True)
     inc = [
         TWIN,  # <<< ДВОЙНИК ПЕРВЫМ -- это и есть весь фокус
         os.path.join(REPO, "fa2_src/cutlass/include"),

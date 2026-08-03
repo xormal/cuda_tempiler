@@ -544,6 +544,126 @@ def test_g11_two_way_binding():
 
 
 # ============================================================================================
+# G12 -- КЛЮЧ ПО СОДЕРЖИМОМУ ИЛИ ПО ВЛАДЕНИЮ, НО НЕ ПО АДРЕСУ И НЕ ПО ИМЕНИ.
+# LAW=L-CACHE-KEY-BY-CONTENT
+#
+# ЗАЧЕМ ЗАВЕДЁН.  Задача #137: таблица преобразованных весов ключевалась СЫРЫМ УКАЗАТЕЛЕМ на
+# объект, которым она НЕ ВЛАДЕЕТ.  Вес освободили -- распределитель отдал тот же слот следующему
+# тензору той же формы -- ключ совпал целиком -- таблица вернула преобразование ПРЕДЫДУЩЕГО веса.
+# Подпись беды: relL2 = sqrt(2) = 1.414, то есть норма между ДВУМЯ НЕСВЯЗАННЫМИ матрицами.
+#
+# ЭТО КЛАСС, А НЕ СЛУЧАЙ.  За сутки три экземпляра, и ни один не падает: (1) ключ по чужому
+# указателю; (2) сверка сетей, взявшая ЛЕЖАВШИЙ РЯДОМ старый слепок вместо несуществующего
+# свежего и напечатавшая «совпадает побитово, 64 из 64»; (3) освобождение, сносившее запись,
+# принадлежащую соседу.  Опасное направление ОДНО: «принял чужое за своё» молчит, обратное
+# («не узнал своё») стоит пересчёта и видно сразу.
+#
+# ЧТО ПРОВЕРЯЕТСЯ ЗДЕСЬ (три части, каждая падала ДО правки задачи 155):
+#   (а) НИ ОДНА таблица продукта не ключуется адресом объекта -- `id(...)` в позиции ключа;
+#   (б) повторное использование СОБРАННОГО опознаётся отпечатком СОДЕРЖИМОГО, а не «файл есть»;
+#   (в) отпечаток паспорта поставки СВЕРЯЕТСЯ с содержимым, а не проверяется на наличие.
+# ============================================================================================
+G12_DIRS = ("tempo", "tools", "tests", "kernels", "bench")
+# `id(` В ПОЗИЦИИ КЛЮЧА: индекс, .get/.setdefault/.pop, либо элемент кортежа-ключа.
+G12_ID_KEY = re.compile(
+    r"(?:\[\s*id\(|\.(?:get|setdefault|pop)\(\s*id\(|\(\s*id\(\w+\)\s*,)"
+)
+# ГДЕ ПОВТОРНО ИСПОЛЬЗУЕТСЯ СОБРАННОЕ: (файл, имя функции, что обязано быть в её тексте).
+G12_BUILD_REUSE = (
+    ("tools/ncu.py", "def build_canary", "_src_digest"),
+    ("tools/ncu.py", "def build_synth", "_src_digest"),
+    ("tools/bwd_phase_ext.py", "def build", "hashlib.md5"),
+)
+
+
+def _fn_source(text, header):
+    i = text.find(header)
+    if i < 0:
+        return ""
+    j = text.find("\ndef ", i + 1)
+    return text[i : j if j > 0 else len(text)]
+
+
+def test_g12_cache_keys():
+    bad = []
+    for sub in G12_DIRS:
+        for path in _py_files(os.path.join(ROOT, sub)):
+            rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+            if rel == "tests/test_gates.py":
+                continue  # сам гейт обязан называть то, что ищет
+            src = open(path, encoding="utf-8", errors="ignore").read()
+            for m in G12_ID_KEY.finditer(_strip_docs(src, None)):
+                bad.append(
+                    "%s: ключ таблицы взят из АДРЕСА объекта (%r) -- адрес переиздаётся "
+                    "распределителем, и таблица вернёт ЧУЖУЮ запись, не упав"
+                    % (rel, m.group(0))
+                )
+    for rel, header, need in G12_BUILD_REUSE:
+        p = os.path.join(ROOT, rel)
+        if not os.path.exists(p):
+            bad.append(
+                "%s: файла нет -- проверка повторного использования не выполнена" % rel
+            )
+            continue
+        body = _fn_source(open(p, encoding="utf-8", errors="ignore").read(), header)
+        if not body:
+            bad.append("%s: нет %r -- проверка не выполнена" % (rel, header))
+        elif need not in body:
+            bad.append(
+                "%s:%s -- собранное опознаётся ИМЕНЕМ ПУТИ, а не отпечатком содержимого (нет "
+                "%r): «файл есть» не значит «собрано из этого исходника»"
+                % (rel, header, need)
+            )
+    # (в) ПАСПОРТ ПОСТАВКИ: отпечаток обязан СХОДИТЬСЯ, и обязано быть названо, что он подписывает.
+    import hashlib
+    import json
+
+    man = os.path.join(ROOT, "kernels/shipped/gemm_fp16/sm_70/manifest.json")
+    if os.path.exists(man):
+        with open(man, encoding="utf-8") as fh:
+            d = json.load(fh)
+        what = d.get("source_md5_of")
+        if not what:
+            bad.append(
+                "паспорт поставки: есть source_md5 и НЕ НАЗВАНО, что он подписывает -- "
+                "ключ по содержимому, который нечем сверить, работает как ключ по имени"
+            )
+        else:
+            sp = os.path.join(os.path.dirname(man), what)
+            if not os.path.exists(sp):
+                bad.append("паспорт поставки: подписанного файла %s нет" % what)
+            else:
+                got = hashlib.md5(open(sp, "rb").read()).hexdigest()
+                if got != d.get("source_md5"):
+                    bad.append(
+                        "паспорт поставки: отпечаток %s не сходится (%s против %s)"
+                        % (what, d.get("source_md5"), got)
+                    )
+        gate_src = open(
+            os.path.join(ROOT, "kernels/shipped/gemm_fp16/sm_70/test_gate.py"),
+            encoding="utf-8",
+            errors="ignore",
+        ).read()
+        if "hashlib" not in _fn_source(gate_src, "def check_manifest"):
+            bad.append(
+                "паспорт поставки: приёмка проверяет НАЛИЧИЕ поля source_md5 и не сверяет его "
+                "с содержимым -- правка исходника оставит старый отпечаток, и никто не упадёт"
+            )
+    assert not bad, "ключ опознаётся адресом или именем:\n  " + "\n  ".join(bad)
+
+    # ФАЛЬСИФИКАТОР ГЕЙТА: образец с ключом по адресу обязан быть ПОЙМАН, иначе гейт зелен на
+    # пустой проверке (ровно та ошибка, что была у первой редакции проверки запретов).
+    образец = "CACHE[id(body)] = 1\nx = CACHE.get(id(body), {})\nk = (id(src), 2)\n"
+    assert len(G12_ID_KEY.findall(образец)) == 3, (
+        "образец с тремя ключами по адресу пойман %d раз -- проверка ловит не всё"
+        % len(G12_ID_KEY.findall(образец))
+    )
+    assert not G12_ID_KEY.findall("n = id(a) == id(b)\nprint(id(x))\n"), (
+        "сравнение личностей и печать адреса -- НЕ ключ таблицы, а гейт их считает нарушением"
+    )
+
+
+# ============================================================================================
 GATES = [
     ("G1 лексический", test_g1_lexical),
     ("G2 пустой плагин", test_g2_null_plugin),
@@ -556,6 +676,7 @@ GATES = [
     ("G9 запись закона", test_g9_law_record),
     ("G10 место закона", test_g10_law_home),
     ("G11 двусторонняя привязка", test_g11_two_way_binding),
+    ("G12 ключ по содержимому, не по адресу", test_g12_cache_keys),
 ]
 
 

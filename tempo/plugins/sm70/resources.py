@@ -77,6 +77,13 @@ class Sm70Resources:
         if slots <= min(by_reg, by_smem):
             limiter = "warp_slots"
         ctas = max(0, w // warps_per_cta)
+        # ВАРПОВ РОВНО СТОЛЬКО, СКОЛЬКО ИХ В РЕЗИДЕНТНЫХ БЛОКАХ.  LAW=L-PRUNE-REGS-PESSIMISTIC
+        # Резидентность -- целое число БЛОКОВ, а не варпов: варп чужого блока на процессор не
+        # въезжает. Прежняя редакция отдавала остаток от деления (20 варпов при двух блоках по
+        # восемь), и число, которого на процессоре не бывает, шло дальше в бюджет регистров:
+        # Q(20)=96 вместо Q(16)=128. Замерено: ровно по этому 96 отсекатель выбросил
+        # m64x128k32, который собрался на 112 регистрах БЕЗ единого разлива.
+        w = ctas * warps_per_cta
         # ПОРОГ ВТОРОГО БЛОКА: ОБА условия обязаны выполниться одновременно.
         if ctas >= 2:
             if smem_bytes > int(_M.rate("REG.SECOND_CTA_SMEM").value) or regs > int(
@@ -94,10 +101,29 @@ class Sm70Resources:
 
     # -- ВЕРДИКТ БЕЗ СБОРКИ ------------------------------------------------------------------
     def verdict(
-        self, regs: int, max_live: int, smem_bytes: int, threads: int
+        self,
+        regs: int,
+        max_live: int,
+        smem_bytes: int,
+        threads: int,
+        min_ctas_per_sm: int = 1,
     ) -> ResourceVerdict:
+        """LAW=L-PRUNE-REGS-PESSIMISTIC
+
+        ТРИ ВХОДА, И КАЖДЫЙ ОТВЕЧАЕТ ЗА СВОЁ:
+          * `regs` -- ОПТИМИСТИЧНЫЙ край оценки. Им считается РЕЗИДЕНТНОСТЬ, потому что
+            резидентность идёт в НИЖНЮЮ границу времени, а нижнюю границу занижать нельзя.
+          * `max_live` -- ПЕССИМИСТИЧНЫЙ край. Им отвечают «разольётся ли»: ошибка в сторону
+            «влезает» ТИХО теряет победителя, ошибка в сторону «не влезет» стоит сборки.
+          * `min_ctas_per_sm` -- ОБЪЯВЛЕННАЯ СБОРЩИКУ резидентность, то есть то, что сборщик
+            УСЛЫШАЛ. Бюджет регистров назначает ОНА. Прежняя редакция выводила бюджет из
+            собственной оценки занятости -- круг: оценка проверялась бюджетом, посчитанным по
+            ней же. Круг опровергнут прямым замером: на трёх телах из двенадцати выведенный
+            бюджет оказался НИЖЕ того, что ptxas реально взял (объявленный -- ни на одном).
+        """
         isa = int(_M.rate("GEOM.REG_ISA_LIMIT").value)
         smem_max = int(_M.rate("GEOM.SMEM_PER_CTA_MAX").value)
+        tpw = int(_M.rate("GEOM.THREADS_PER_WARP").value)
         occ = self.occupancy(regs, smem_bytes, threads)
 
         if smem_bytes > smem_max:
@@ -113,13 +139,15 @@ class Sm70Resources:
                 False, "NO_BUDGET", occ, "ни один блок не резидентен"
             )
         need = self.spill_threshold(max_live)
-        budget = min(isa, self.reg_budget(occ.warps_per_sm))
+        declared_warps = max(1, threads // tpw) * max(1, int(min_ctas_per_sm))
+        budget = min(isa, self.reg_budget(declared_warps))
         if need > isa:
             return ResourceVerdict(
                 False,
                 "WALL_REG",
                 occ,
-                "MaxLive %d + %d = %d > потолка ISA %d: не лечится занятостью вовсе"
+                "MaxLive %d + %d = %d > потолка ISA %d: не лечится занятостью вовсе "
+                "(число -- ПЕССИМИСТИЧНЫЙ край оценки, поэтому вывод СОВЕЩАТЕЛЬНЫЙ)"
                 % (max_live, need - max_live, need, isa),
             )
         if need > budget:
@@ -129,22 +157,27 @@ class Sm70Resources:
                 over <= self.free_spills(),
                 "SPILL",
                 occ,
-                "разлив %d значений (нужно %d, бюджет %d при %d варпах); цена x%.1f%s"
+                "разлив %d значений (нужно %d, ОБЪЯВЛЕННЫЙ бюджет %d при %d варпах); цена x%.1f%s"
                 % (
                     over,
                     need,
                     budget,
-                    occ.warps_per_sm,
+                    declared_warps,
                     k.value,
                     "" if over > self.free_spills() else " -- в пределах бесплатных",
                 ),
             )
+        # «ВЛЕЗАЕТ» СКАЗАНО ПО ПЕССИМИСТИЧНОМУ КРАЮ -- и только поэтому это утверждение, а не
+        # пожелание: если даже верхний край полосы уместился в объявленный бюджет, уместится и
+        # тело.  Обратное («разольётся») по тому же краю -- лишь ПОДОЗРЕНИЕ, и режет по нему
+        # не вердикт, а сборка.
         return ResourceVerdict(
             True,
             "FITS",
             occ,
-            "нужно %d регистров, бюджет %d при %d варпах (%d блок(ов) на SM, ограничивает %s)"
-            % (need, budget, occ.warps_per_sm, occ.ctas_per_sm, occ.limiter),
+            "нужно %d регистров даже по ВЕРХНЕМУ краю оценки, ОБЪЯВЛЕННЫЙ бюджет %d при %d "
+            "варпах (%d блок(ов) на SM, ограничивает %s)"
+            % (need, budget, declared_warps, occ.ctas_per_sm, occ.limiter),
         )
 
     def wave_quantum(self, occ: Occupancy) -> int:

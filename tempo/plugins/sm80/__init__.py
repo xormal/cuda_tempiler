@@ -311,7 +311,7 @@ class Sm80Resources:
     def occupancy(self, regs, smem_bytes, threads):
         raise PluginCapabilityError("занятость sm_80 не перемерена")
 
-    def verdict(self, regs, max_live, smem_bytes, threads):
+    def verdict(self, regs, max_live, smem_bytes, threads, min_ctas_per_sm=1):
         raise PluginCapabilityError(
             "ресурсный вердикт sm_80 недоступен: все три закона (Q(W), MaxLive+overhead, порог "
             "второго блока) требуют ЗАМЕРА. Отсекатель обязан МОЛЧАТЬ, а не считать по Volta."

@@ -5,7 +5,7 @@
 # Вшивание ядра `gemm_fp16 / sm_70` в inference
 
 Инструкция для ХОСТ-дерева (движка вывода). Боевое дерево этого проекта
-(`/mnt/d1/alex/VLLM_fa2/solutions/fa2_sm70_cutlass_grade`) здесь **только читается**;
+(`$TEMPO_HOST_TREE`) здесь **только читается**;
 изменения делает владелец хост-дерева по этой инструкции.
 
 ---
@@ -54,7 +54,7 @@
 ### Шаг 1. Сборка — только из исходника, каталог сборки задаётся ЯВНО
 
 ```bash
-export TEMPO_BUILD_DIR=/tmp/$USER/tempo_build      # НИКОГДА не наследовать
+export TEMPO_BUILD_DIR="${TEMPO_BUILD_DIR:?set an explicit build directory}"  # НИКОГДА не наследовать
 mkdir -p "$TEMPO_BUILD_DIR"
 
 # В СПИСОК ИСТОЧНИКОВ ХОСТ-ДЕРЕВА ОБЯЗАТЕЛЬНО ВХОДИТ launch.cu.

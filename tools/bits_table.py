@@ -102,7 +102,7 @@ LLAMA_LAYERS = 16
 
 MODELS = {
     "gemma": dict(
-        path="/mnt/d1/alex/models/gemma-4-12B-it-fix",
+        path=os.environ.get("TEMPO_GEMMA_MODEL", ""),
         vlm=True,
         shapes=GEMMA_SHAPES,
         layers=GEMMA_LAYERS,
@@ -115,7 +115,7 @@ MODELS = {
     ),
 }
 
-CORPUS = "/mnt/d1/alex/reports/raw/corpus_wp.txt"
+CORPUS = os.environ.get("TEMPO_CORPUS", "")
 
 
 # =======================================================================================
@@ -1670,8 +1670,8 @@ def main():
     ap.add_argument("--model", default="gemma", choices=list(MODELS))
     ap.add_argument("--set", default="main")
     ap.add_argument("--only", default="")
-    ap.add_argument("--ref", default="/mnt/d1/alex/reports/raw/EV_bits/ref_gemma.json")
-    ap.add_argument("--out", default="/mnt/d1/alex/reports/raw/EV_bits/rows_gemma.json")
+    ap.add_argument("--ref", default="data/ref_gemma.json")
+    ap.add_argument("--out", default="data/rows_gemma.json")
     ap.add_argument("--prompts", type=int, default=12)
     ap.add_argument("--plen", type=int, default=256)
     ap.add_argument("--gen", type=int, default=192)

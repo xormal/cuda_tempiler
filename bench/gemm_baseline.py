@@ -24,7 +24,7 @@
 
 Запуск:
   CUDA_HOME=/home/alex/miniconda3/envs/cuda128 \
-  /home/alex/miniconda3/envs/vllm/bin/python bench/gemm_baseline.py --dev 0
+  python3 bench/gemm_baseline.py --dev 0
 """
 
 import argparse
@@ -39,7 +39,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-FA2 = "/mnt/d1/alex/VLLM_fa2/solutions/fa2_sm70_cutlass_grade"
+FA2 = os.environ.get("TEMPO_HOST_TREE", "")
 GEMM_INC = os.path.join(FA2, "fa2_src/fmha_kernel/gemm")
 
 # Боевые формы Gemma-4-12B: H=3840, I=15360, 16 голов, 8 KV, d=256, 48 слоёв.
@@ -234,7 +234,7 @@ def make_gptq_int8(K, N, G, dev, seed):
 
 # --------------------------------------------------------------------------- C++ плечи
 def build_cxx(out_bin):
-    cuda_home = os.environ.get("CUDA_HOME", "/home/alex/miniconda3/envs/cuda128")
+    cuda_home = os.environ.get("CUDA_HOME", "/opt/conda")
     cmd = [
         os.path.join(cuda_home, "bin/nvcc"),
         "-O3",
@@ -255,7 +255,7 @@ def build_cxx(out_bin):
 def run_cxx(binpath, dev, rounds, ms_list, quiet=False):
     env = dict(os.environ)
     env["LD_LIBRARY_PATH"] = (
-        os.environ.get("CUDA_HOME", "/home/alex/miniconda3/envs/cuda128")
+        os.environ.get("CUDA_HOME", "/opt/conda")
         + "/lib:"
         + env.get("LD_LIBRARY_PATH", "")
     )

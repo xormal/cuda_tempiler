@@ -17,7 +17,7 @@ fp16 отношение не имеет. Ошибка прошла через п
 ЧЕГО ЭТОТ ЗАМЕР НЕ ГОВОРИТ: он не про точность и не про полосу. Узкий операнд на Volta покупает
 ПОЛОСУ и ЁМКОСТЬ (и это отдельно замерено в W8A16), но не ФЛОПы.
 
-Запуск: /home/alex/miniconda3/envs/vllm/bin/python bench/int8_roof.py --dev 0
+Запуск: python3 bench/int8_roof.py --dev 0
 """
 
 import argparse
@@ -65,7 +65,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dev", type=int, default=0)
     ap.add_argument("--rounds", type=int, default=5)
-    ap.add_argument("--out", default="/mnt/d1/alex/tempo/data")
+    ap.add_argument("--out", default="data")
     args = ap.parse_args()
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", str(args.dev))
     import torch

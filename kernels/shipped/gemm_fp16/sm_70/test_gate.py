@@ -44,7 +44,6 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -148,6 +147,7 @@ def check_dispatch_matches_select():
 
 
 def check_manifest():
+    import hashlib
     import json
 
     p = os.path.join(HERE, "manifest.json")
@@ -159,6 +159,38 @@ def check_manifest():
         return False
     card = d["card"]
     ok = True
+    # ОТПЕЧАТОК ОБЯЗАН СХОДИТЬСЯ, А НЕ ПРОСТО ПРИСУТСТВОВАТЬ (LAW=L-CACHE-KEY-BY-CONTENT).
+    # Прежняя редакция проверяла НАЛИЧИЕ поля: правка исходника оставляла старый отпечаток, и
+    # паспорт подписывал не то, что лежит.  Ключ по содержимому, который никто не пересчитывает,
+    # -- это ключ по ИМЕНИ.  Если не названо, ЧТО подписано, проверка ОТКАЗЫВАЕТ, а не гадает.
+    what = d.get("source_md5_of")
+    if not what:
+        print(
+            "МАНИФЕСТ: есть source_md5, но НЕ НАЗВАНО, какой файл он подписывает -- "
+            "сверить нечего. Добавьте source_md5_of."
+        )
+        ok = False
+    else:
+        sp = os.path.join(HERE, what)
+        if not os.path.exists(sp):
+            print("МАНИФЕСТ: подписанный файл %s ОТСУТСТВУЕТ" % what)
+            ok = False
+        else:
+            got = hashlib.md5(open(sp, "rb").read()).hexdigest()
+            if got != d["source_md5"]:
+                print(
+                    "МАНИФЕСТ: отпечаток %s НЕ СХОДИТСЯ: в паспорте %s, у файла %s -- "
+                    "паспорт подписывает НЕ ТО, что лежит"
+                    % (what, d["source_md5"], got)
+                )
+                ok = False
+            else:
+                unsigned = [f for f in SHIP_SOURCES if f != what]
+                print(
+                    "манифест: отпечаток %s СВЕРЕН по содержимому; НЕ ПОДПИСАНЫ %d файла "
+                    "поставки: %s (названный пробел)"
+                    % (what, len(unsigned), ", ".join(unsigned))
+                )
     if isinstance(card, dict) and card.get("foreign_procs", 0) not in (0, "0"):
         print(
             "МАНИФЕСТ: замер снят при чужих процессах на карте -- числа недействительны"
